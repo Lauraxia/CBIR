@@ -1,11 +1,26 @@
-%load all IRMA training images:
-dirpath = '/home/smaryam/Documents/IRMA/2009/Training Data/ImageCLEFmed2009_train.02/';
-path = sprintf('%s/*.png', dirpath);
+%% load all IRMA training and testing images:
+trainPath = '../../IRMA/2009/Training Data/ImageCLEFmed2009_train.02/';
+path = sprintf('%s*.png', trainPath);
 files = dir(path);
+
+testPath = '../../IRMA/2009/Testing Data/';
+path = sprintf('%s*.png', testPath);
+testFiles = dir(path);
+
+%append all test files to the list of training files, keeping track of the 
+%end of the training files to distinguish them later:
+trainingLength = length(files);
+files = vertcat(files, testFiles);
 
 i=1;
 for file = files'
-   irma{i} = imread(sprintf('%s/%s', dirpath, file.name));
+   %add path for either training or testing folder, depending on file:
+   if (i <= trainingLength)
+       imgpath = sprintf('%s/%s', trainPath, file.name);
+   else
+       imgpath = sprintf('%s/%s', testPath, file.name);
+   end
+   irma{i} = imread(imgpath);
    
    %any 3-channel images seem to be the same for all colour channels, so we
    %can just remove all but channel 1:
@@ -18,22 +33,26 @@ for file = files'
    i = i+1;
 end
 
+%% calculate SURF features for them (using a low enough threshold to guarantee a min number of features to use)
+features = cell(1, length(files));
+strongestfeatures = cell(1, length(files));
+fprintf('Progress:\n');
+fprintf(['\n' repmat('.',1,(floor(length(files)/100))) '\n\n']);
 
-%%
-
-%calculate SURF features for them (using a low enough threshold to
-%guarantee a min number of features to use)
-i=1;
-for file = files'
+parfor i=1:length(files)
    features{i} = detectSURFFeatures(irma{i}, 'MetricThreshold', 200);
    strongestfeatures{i}=features{i}.selectStrongest(10);
-   i = i+1;
-   fprintf('Calculating features for %d \r', i);
+
+   %fprintf('Calculating features for %d \n', i);
+   if mod(i,100) == 0
+   fprintf('\b|\n');
+   end
 end
 
 %%
 
-saveSURFtoFile('features.txt', strongestfeatures);
+saveSURFtoFile('trainingFeatures.txt', strongestfeatures(1:trainingLength), 10);
+saveSURFtoFile('testingFeatures.txt', strongestfeatures(trainingLength+1:end), 10);
 %%
 
 

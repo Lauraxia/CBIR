@@ -1,0 +1,12 @@
+#exclude LSH binaries, but not other things...
+E2LSH-0.1/bin
+E2LSH-0.1/*.params
+!E2LSH-0.1/bin/lsh*
+!E2LSH-0.1/bin/compile
+!E2LSH-0.1/bin/exact
+
+#and output from features:
+CBIR/*.txt
+
+#and temp files
+*~
