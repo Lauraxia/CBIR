@@ -1,5 +1,5 @@
 %load all IRMA training images:
-dirpath = '../../IRMA/2009/Training Data/ImageCLEFmed2009_train.02/';
+dirpath = '/home/smaryam/Documents/IRMA/2009/Training Data/ImageCLEFmed2009_train.02/';
 path = sprintf('%s/*.png', dirpath);
 files = dir(path);
 
@@ -32,5 +32,16 @@ for file = files'
 end
 
 %%
+
 saveSURFtoFile('features.txt', strongestfeatures);
 %%
+
+
+%calculate radon barcodes (RBCs) from each image 
+i=1;
+for file = files'
+    barcode{i} = extractRBC(irma{i}, 32, 32, 8, false);
+    i=i+1;
+    fprintf('Extracting barcodes for image %d \r', i); 
+end
+
