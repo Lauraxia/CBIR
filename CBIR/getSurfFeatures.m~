@@ -32,5 +32,4 @@ for file = files'
 end
 
 %%
-saveSURFtoFile('features.txt', strongestfeatures);
-%%
+saveSURFtoFile('features.tx
