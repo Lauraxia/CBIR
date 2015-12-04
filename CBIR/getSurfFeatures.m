@@ -39,9 +39,11 @@ strongestfeatures = cell(1, length(files));
 fprintf('Progress:\n');
 fprintf(['\n' repmat('.',1,(floor(length(files)/100))) '\n\n']);
 
+%calculate SURF features for them (using a low enough threshold to
+%guarantee a min number of features to use)
 parfor i=1:length(files)
-   features{i} = detectSURFFeatures(irma{i}, 'MetricThreshold', 200);
-   strongestfeatures{i}=features{i}.selectStrongest(10);
+   SURFfeatures{i} = detectSURFFeatures(irma{i}, 'MetricThreshold', 200);
+   strongestSURFfeatures{i}=SURFfeatures{i}.selectStrongest(10);
 
    %fprintf('Calculating features for %d \n', i);
    if mod(i,100) == 0
@@ -50,17 +52,30 @@ parfor i=1:length(files)
 end
 
 %%
+saveSURFtoFile('trainingFeatures.txt', strongestSURFfeatures(1:trainingLength), 10);
+saveSURFtoFile('testingFeatures.txt', strongestSURFfeatures(trainingLength+1:end), 10);
 
-saveSURFtoFile('trainingFeatures.txt', strongestfeatures(1:trainingLength), 10);
-saveSURFtoFile('testingFeatures.txt', strongestfeatures(trainingLength+1:end), 10);
 %%
 
 
-%calculate radon barcodes (RBCs) from each image 
+%calculate radon barcodes (RBCs) for each image 
 i=1;
 for file = files'
     barcode{i} = extractRBC(irma{i}, 32, 32, 8, false);
     i=i+1;
     fprintf('Extracting barcodes for image %d \r', i); 
 end
+
+%%
+
+%calculate brisk features for images
+i=1;
+for file = files'
+    BRISKfeatures{i} = detectBRISKFeatures(irma{i}, 'MinContrast', 0.1);
+    strongestBRISKfeatures{i} = BRISKfeatures{i}.selectStrongest(10); 
+    i=i+1;
+    fprintf('Calculating BRISK features for %d \r', i);
+end
+    
+    
 

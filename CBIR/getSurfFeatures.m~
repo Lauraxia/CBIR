@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 %% load all IRMA training and testing images:
 trainPath = '../../IRMA/2009/Training Data/ImageCLEFmed2009_train.02/';
 path = sprintf('%s*.png', trainPath);
+=======
+%load all IRMA training images:
+dirpath = '../../IRMA/2009/Training Data/ImageCLEFmed2009_train.02/';
+path = sprintf('%s/*.png', dirpath);
+>>>>>>> d66b743ad6f38570985e0d235fb62b50cd2338ac
 files = dir(path);
 
 testPath = '../../IRMA/2009/Testing Data/';
@@ -35,26 +41,62 @@ end
 
 %% calculate SURF features for them (using a low enough threshold to guarantee a min number of features to use)
 features = cell(1, length(files));
-strongestfeatures = cell(length(files), 1);
+strongestfeatures = cell(1, length(files));
+fprintf('Progress:\n');
+fprintf(['\n' repmat('.',1,(floor(length(files)/100))) '\n\n']);
+
+<<<<<<< HEAD
 parfor i=1:length(files)
    features{i} = detectSURFFeatures(irma{i}, 'MetricThreshold', 200);
    strongestfeatures{i}=features{i}.selectStrongest(10);
 
-   fprintf('Calculating features for %d \n', i);
+   %fprintf('Calculating features for %d \n', i);
+   if mod(i,100) == 0
+   fprintf('\b|\n');
+   end
+=======
+%%
+
+%calculate SURF features for them (using a low enough threshold to
+%guarantee a min number of features to use)
+i=1;
+for file = files'
+   SURFfeatures{i} = detectSURFFeatures(irma{i}, 'MetricThreshold', 200);
+   strongestSURFfeatures{i}=SURFfeatures{i}.selectStrongest(10);
+   i = i+1;
+   fprintf('Calculating SURF features for %d \r', i);
+>>>>>>> d66b743ad6f38570985e0d235fb62b50cd2338ac
 end
 
 %%
 
-saveSURFtoFile('trainingFeatures.txt', strongestfeatures(1:trainingLength));
-saveSURFtoFile('testingFeatures.txt', strongestfeatures(trainingLength+1:end));
+<<<<<<< HEAD
+saveSURFtoFile('trainingFeatures.txt', strongestfeatures(1:trainingLength), 10);
+saveSURFtoFile('testingFeatures.txt', strongestfeatures(trainingLength+1:end), 10);
+=======
+saveSURFtoFile('SURFfeatures.txt', strongestSURFfeatures);
+>>>>>>> d66b743ad6f38570985e0d235fb62b50cd2338ac
 %%
 
 
-%calculate radon barcodes (RBCs) from each image 
+%calculate radon barcodes (RBCs) for each image 
 i=1;
 for file = files'
     barcode{i} = extractRBC(irma{i}, 32, 32, 8, false);
     i=i+1;
     fprintf('Extracting barcodes for image %d \r', i); 
 end
+
+%%
+
+%calculate brisk features for images
+i=1;
+for file = files'
+    BRISKfeatures{i} = detectBRISKFeatures(irma{i}, 'MinContrast', 0.1);
+    strongestBRISKfeatures{i} = BRISKfeatures{i}.selectStrongest(10); 
+    i=i+1;
+    fprintf('Calculating BRISK features for %d \r', i);
+end
+    
+    
 
