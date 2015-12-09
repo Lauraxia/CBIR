@@ -55,10 +55,7 @@ end
 saveSURFtoFile('trainingFeatures.txt', strongestSURFfeatures(1:trainingLength), 10);
 saveSURFtoFile('testingFeatures.txt', strongestSURFfeatures(trainingLength+1:end), 10);
 
-%%
-
-
-%calculate radon barcodes (RBCs) for each image 
+%% calculate radon barcodes (RBCs) for each image 
 i=1;
 for file = files'
     barcode{i} = extractRBC(irma{i}, 32, 32, 8, false);
@@ -66,9 +63,7 @@ for file = files'
     fprintf('Extracting barcodes for image %d \r', i); 
 end
 
-%%
-
-%calculate brisk features for images
+%% calculate brisk features for images
 i=1;
 for file = files'
     BRISKfeatures{i} = detectBRISKFeatures(irma{i}, 'MinContrast', 0.1);
@@ -76,6 +71,45 @@ for file = files'
     i=i+1;
     fprintf('Calculating BRISK features for %d \r', i);
 end
+
+
+%% saving features to array for input to lsh
+n=1;
+
+for i = 1:5
+    
+    for j=1:length(strongestSURFfeatures{i})
+        
+        currFeat=strongestSURFfeatures{i}(j);
+        
+        inputFeat(:,n)=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
+            double(currFeat.Orientation); double(currFeat.Location(1));...
+            double(currFeat.Location(2)); double(currFeat.Metric)] ;
+        
+        j=j+1;
+        n=n+1;
+    end
+    i=i+1;
+end
+
+
+%% creating lsh data structure for input features
+Te=lsh('e2lsh', 50,30,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
+
+%% providing query feature to lsh to find closest matches 
+[iNN,numcand]=lshlookup(inputFeat(:,8),inputFeat,Te,'k',11);
+
+%read image indexes of closest matches
+for i=1:length(iNN)
+    imgnum(i)=floor(iNN(i)/10)+1;
+    i=i+1;
+end
+
+%extracting IRMA codes of the closest matches obtained through LSH by
+%providing indexes and path to csv file containing IRMA codes
+filepath= '../../IRMA/2009/Irma Code Training/ImageCLEFmed2009_train_codes.02.csv';
+
+IRMAcode=extractIRMAcode(filepath, imgnum);
     
     
 

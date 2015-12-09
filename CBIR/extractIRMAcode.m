@@ -1,4 +1,4 @@
-function [ ] = extractIRMAcode(filepath, imgnum)
+function [IRMAcode] = extractIRMAcode(filepath, imgnum)
 %filepath is path to csv file
 %imgnum is the index of the image in IRMA database
 
@@ -6,11 +6,15 @@ function [ ] = extractIRMAcode(filepath, imgnum)
 t=readtable(filepath, 'Delimiter', ';');
 
 %convert table to cell structure
-c=table2cell(t);
+c=table2cell(t(:,1:2));
 
 %read the corresponding IRMA code of the image using its index 
 %in the cell
 for i=1:size(imgnum,2)
-    IRMAcode{i}=c(find([c{:,1}] == imgnum(i)),2);
+    %IRMAcode{i}=c(find([c{:,1}] == imgnum(i)),2);
+    IRMAcode{i}=c(imgnum(i),2);
     i=i+1;
-end 
+end
+
+end
+
