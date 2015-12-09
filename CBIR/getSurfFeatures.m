@@ -106,10 +106,11 @@ for i=1:length(iNN)
 end
 
 %extracting IRMA codes of the closest matches obtained through LSH by
-%providing indexes and path to csv file containing IRMA codes
+%providing indexes and path to csv file containing IRMA codes, and writing
+%them to a file 
 filepath= '../../IRMA/2009/Irma Code Training/ImageCLEFmed2009_train_codes.02.csv';
 
-IRMAcode=extractIRMAcode(filepath, imgnum);
+extractIRMAcode(filepath, imgnum);
     
     
 
