@@ -31,6 +31,10 @@ for file = files'
     %nothing is actually colour, or we'll need to handle that differently
    
    i = i+1;
+   %print progress every 100 images (mod is cheaper than a print)...
+   if mod(i,100) ==0
+       i
+   end
 end
 
 %% calculate SURF features for them (using a low enough threshold to guarantee a min number of features to use)
@@ -52,10 +56,11 @@ parfor i=1:length(files)
 end
 
 %%
-saveSURFtoFile('trainingFeatures.txt', strongestSURFfeatures(1:trainingLength), 10);
+saveSURFtoFile('trainingFeatures.txt', strongestSURFfeatures(1:trainingLength), 10, );
 saveSURFtoFile('testingFeatures.txt', strongestSURFfeatures(trainingLength+1:end), 10);
 
 %% calculate radon barcodes (RBCs) for each image 
+addpath('../');
 i=1;
 for file = files'
     barcode{i} = extractRBC(irma{i}, 32, 32, 8, false);
@@ -94,6 +99,7 @@ end
 
 
 %% creating lsh data structure for input features
+addpath('../lshcode');
 Te=lsh('e2lsh', 50,30,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
 
 %% providing query feature to lsh to find closest matches 
@@ -104,15 +110,20 @@ for i=1:length(iNN)
     imgnum(i)=floor(iNN(i)/10)+1;
     i=i+1;
 end
-
+%%
+%TODO: this is a super hackish way to make the relative path absolute
+%before passing to a function, to work around errors with readtable
+currAbsPath = cd;
+cd ../..;
+newPath = cd;
+filepath= sprintf('%s/IRMA/2009/Irma Code Training/ImageCLEFmed2009_train_codes.02.csv', newPath)
+cd(currAbsPath);
+imgnum = 10
 %extracting IRMA codes of the closest matches obtained through LSH by
 %providing indexes and path to csv file containing IRMA codes, and writing
 %them to a file 
-filepath= '../../IRMA/2009/Irma Code Training/ImageCLEFmed2009_train_codes.02.csv';
-
 extractIRMAcode(filepath, imgnum);
-    
     
 
 %%
-getAllIRMACodes(
+%getAllIRMACodes(
