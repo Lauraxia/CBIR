@@ -26,7 +26,7 @@ for i=1:length(features)
         %is perhaps slightly faster?  Surely there is a better way...
         %fprintf(file, '%f %f %f %f %f %f\n', features{1}(j).Scale, features{1}(j).SignOfLaplacian, features{1}(j).Orientation, features{1}(j).Location, features{1}(j).Metric); 
         
-        currFeat = features{1}(j);
+        currFeat = features{i}(j);
         currString = sprintf('%f %f %f %f %f %f\n', currFeat.Scale, currFeat.SignOfLaplacian, currFeat.Orientation, currFeat.Location, currFeat.Metric); 
         fprintf(file, currString);    
         
