@@ -335,11 +335,13 @@ int main(int nargs, char **args){
     IntT nNNs = 0;
     for(IntT r = 0; r < nRadii; r++){
       nNNs = getRNearNeighbors(nnStructs[r], queryPoint, result, resultSize);
-      printf("Total time for R-NN query at radius %0.6lf (radius no. %d):\t%0.6lf\n", (double)(listOfRadii[r]), r, timeRNNQuery);
+      //printf("Total time for R-NN query at radius %0.6lf (radius no. %d):\t%0.6lf\n", (double)(listOfRadii[r]), r, timeRNNQuery);
+      printf("%0.6lf %d \t%0.6lf\n", (double)(listOfRadii[r]), r, timeRNNQuery);
       meanQueryTime += timeRNNQuery;
 
       if (nNNs > 0){
-	printf("Query point %d: found %d NNs at distance %0.6lf (%dth radius). First %d NNs are:\n", i, nNNs, (double)(listOfRadii[r]), r, MIN(nNNs, MAX_REPORTED_POINTS));
+	//printf("Query point %d: found %d NNs at distance %0.6lf (%dth radius). First %d NNs are:\n", i, nNNs, (double)(listOfRadii[r]), r, MIN(nNNs, MAX_REPORTED_POINTS));
+	printf("%d %d %0.6lf %d %d\n", i, nNNs, (double)(listOfRadii[r]), r, MIN(nNNs, MAX_REPORTED_POINTS));
 	
 	// compute the distances to the found NN, and sort according to the distance
 	FAILIF(NULL == (distToNN = (PPointAndRealTStructT*)REALLOC(distToNN, nNNs * sizeof(*distToNN))));
@@ -352,7 +354,8 @@ int main(int nargs, char **args){
 	// Print the points
 	for(IntT j = 0; j < MIN(nNNs, MAX_REPORTED_POINTS); j++){
 	  ASSERT(distToNN[j].ppoint != NULL);
-	  printf("%09d\tDistance:%0.6lf\n", distToNN[j].ppoint->index, distToNN[j].real);
+	  //printf("%09d\tDistance:%0.6lf\n", distToNN[j].ppoint->index, distToNN[j].real);
+	  printf("%09d\t %0.6lf\n", distToNN[j].ppoint->index, distToNN[j].real);
 	  CR_ASSERT(distToNN[j].real <= listOfRadii[r]);
 	  //DPRINTF("Distance: %lf\n", distance(pointsDimension, queryPoint, result[j]));
 	  //printRealVector("NN: ", pointsDimension, result[j]->coordinates);
@@ -361,12 +364,14 @@ int main(int nargs, char **args){
       }
     }
     if (nNNs == 0){
-      printf("Query point %d: no NNs found.\n", i);
+      //printf("Query point %d: no NNs found.\n", i);
+	printf("%d 0\n", i);
     }
   }
   if (nQueries > 0){
     meanQueryTime = meanQueryTime / nQueries;
-    printf("Mean query time: %0.6lf\n", (double)meanQueryTime);
+    //printf("Mean query time: %0.6lf\n", (double)meanQueryTime);
+    printf("%0.6lf\n", (double)meanQueryTime);
   }
 
   for(IntT i = 0; i < nRadii; i++){
