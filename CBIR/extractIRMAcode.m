@@ -1,4 +1,4 @@
-function [] = extractIRMAcode(filepath, imgnum)
+function [imageID, IRMAcode] = extractIRMAcode(filepath, imgnum)
 %filepath is path to csv file
 %imgnum is the index of the image in IRMA database
 

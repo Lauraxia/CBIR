@@ -1,4 +1,4 @@
-clc; clear all; close all;
+%clc; clear all; close all;
 testPath = fopen('../../IRMA/2009/Catergories/08-classes.txt');
 classes = textscan(testPath, '%d;%s');
 fclose(testPath);

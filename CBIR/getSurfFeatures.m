@@ -54,10 +54,46 @@ parfor i=1:length(files)
    fprintf('\b|\n');
    end
 end
+% so we don't have to do this over again unless absolutely necessary:
+save('strongestSURFfeatures.mat', 'strongestSURFfeatures');
+
+%% if we want to use precalculated SURF features:
+load('strongestSURFfeatures.mat', 'strongestSURFfeatures');
 
 %%
-saveSURFtoFile('trainingFeatures.txt', strongestSURFfeatures(1:trainingLength), 10, );
-saveSURFtoFile('testingFeatures.txt', strongestSURFfeatures(trainingLength+1:end), 10);
+testPath = fopen('../../IRMA/2009/Catergories/08-classes.txt');
+classes = textscan(testPath, '%d;%s');
+fclose(testPath);
+
+%sort the classes, so easier to find matches:
+[test, ind] = sort(classes{1,2})
+
+%%
+%load csv with irma code for each image, then match up with what class that is:
+%workaround to avoid strange readtable/etc bug -- saved as a mat
+load('irmaCSV.mat')
+load('irmaCSVtest.mat')
+
+for i=1:length(irmaCSV)
+    irmaCSV{i,3} = find(strcmp(classes{2}, irmaCSV{i,2}));
+    
+    %so we'll know if something wasn't found:
+    if irmaCSV{i,3} == 0 
+       fprintf('very bad %d\n', i);
+    end
+end
+%%
+for i=1:length(irmaCSVtest)
+    irmaCSVtest{i,3} = find(strcmp(classes{2}, irmaCSVtest{i,2}));
+    
+    %so we'll know if something wasn't found:
+    if irmaCSVtest{i,3} == 0 
+       fprintf('very bad %d\n', i);
+    end
+end
+%%
+saveSURFtoFile('training.txt', strongestSURFfeatures(1:trainingLength), 10, irmaCSV(:,3));
+saveSURFtoFile('testing.txt', strongestSURFfeatures(trainingLength+1:end), 10, irmaCSVtest(:,3));
 
 %% calculate radon barcodes (RBCs) for each image 
 addpath('../');
@@ -112,7 +148,8 @@ for i=1:length(iNN)
 end
 %%
 %TODO: this is a super hackish way to make the relative path absolute
-%before passing to a function, to work around errors with readtable
+%before passing to a function, to work around MATLAB bug with readtable...
+%still not working unless you use an absolute path *from command window*
 currAbsPath = cd;
 cd ../..;
 newPath = cd;
@@ -125,5 +162,6 @@ imgnum = 10
 extractIRMAcode(filepath, imgnum);
     
 
-%%
-%getAllIRMACodes(
+
+
+

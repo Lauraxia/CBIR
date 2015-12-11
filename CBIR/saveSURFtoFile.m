@@ -36,7 +36,7 @@ for i=1:length(features)
         currFeat = features{i}(j);
         
         if (saveFirstCol)
-            currString = sprintf('%s %f %f %f %f %f %f\n', firstCol{i}, currFeat.Scale, currFeat.SignOfLaplacian, currFeat.Orientation, currFeat.Location, currFeat.Metric); 
+            currString = sprintf('%d %f %f %f %f %f %f\n', firstCol{i}, currFeat.Scale, currFeat.SignOfLaplacian, currFeat.Orientation, currFeat.Location, currFeat.Metric); 
         else
             currString = sprintf('%f %f %f %f %f %f\n', currFeat.Scale, currFeat.SignOfLaplacian, currFeat.Orientation, currFeat.Location, currFeat.Metric); 
         end

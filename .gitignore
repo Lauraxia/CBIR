@@ -39,3 +39,9 @@ E2LSH-0.1/*.params
 *.exe
 *.out
 *.app
+
+#matlab executables and variables, but not database things:
+*.mexa64
+*.mat
+!CBIR/irmaCSV.mat
+!CBIR/irmaCSVtest.mat
