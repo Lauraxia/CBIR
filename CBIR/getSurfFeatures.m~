@@ -55,46 +55,10 @@ parfor i=1:length(files)
    fprintf('\b|\n');
    end
 end
-% so we don't have to do this over again unless absolutely necessary:
-save('strongestSURFfeatures.mat', 'strongestSURFfeatures');
-
-%% if we want to use precalculated SURF features:
-load('strongestSURFfeatures.mat', 'strongestSURFfeatures');
 
 %%
-testPath = fopen('../../IRMA/2009/Catergories/08-classes.txt');
-classes = textscan(testPath, '%d;%s');
-fclose(testPath);
-
-%sort the classes, so easier to find matches:
-[test, ind] = sort(classes{1,2})
-
-%%
-%load csv with irma code for each image, then match up with what class that is:
-%workaround to avoid strange readtable/etc bug -- saved as a mat
-load('irmaCSV.mat')
-load('irmaCSVtest.mat')
-
-for i=1:length(irmaCSV)
-    irmaCSV{i,3} = find(strcmp(classes{2}, irmaCSV{i,2}));
-    
-    %so we'll know if something wasn't found:
-    if irmaCSV{i,3} == 0 
-       fprintf('very bad %d\n', i);
-    end
-end
-%%
-for i=1:length(irmaCSVtest)
-    irmaCSVtest{i,3} = find(strcmp(classes{2}, irmaCSVtest{i,2}));
-    
-    %so we'll know if something wasn't found:
-    if irmaCSVtest{i,3} == 0 
-       fprintf('very bad %d\n', i);
-    end
-end
-%%
-saveSURFtoFile('training.txt', strongestSURFfeatures(1:trainingLength), 10, irmaCSV(:,3));
-saveSURFtoFile('testing.txt', strongestSURFfeatures(trainingLength+1:end), 10, irmaCSVtest(:,3));
+saveSURFtoFile('trainingFeatures.txt', strongestSURFfeatures(1:trainingLength), 10, );
+saveSURFtoFile('testingFeatures.txt', strongestSURFfeatures(trainingLength+1:end), 10);
 
 %% calculate radon barcodes (RBCs) for each image 
 addpath('../');
@@ -159,9 +123,12 @@ end
 
 
 %% creating lsh data structure for input features
+<<<<<<< HEAD
+Te=lsh('e2lsh', 50,25,size(inputFeat,1), inputFeat, 'range', 255, 'w', -3);
+=======
 addpath('../lshcode');
 Te=lsh('e2lsh', 50,30,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
-
+>>>>>>> f2d7dc456823b2d57c982eecb3cff2215967f1fc
 
 %% providing query feature to lsh to find closest matches 
 
@@ -169,15 +136,7 @@ rNN=21;
 j=1;
 tally=zeros((rNN)*numSURF,2);
 %read in csv file provided for IRMA database as a table data structure
-%%
-%TODO: this is a super hackish way to make the relative path absolute
-%before passing to a function, to work around MATLAB bug with readtable...
-%still not working unless you use an absolute path *from command window*
-currAbsPath = cd;
-cd ../..;
-newPath = cd;
-filepath= sprintf('%s/IRMA/2009/Irma Code Training/ImageCLEFmed2009_train_codes.02.csv', newPath)
-cd(currAbsPath);
+filepath='../../IRMA/2009/IRMA Code Training/ImageCLEFmed2009_train_codes.02.csv';
 t=readtable(filepath, 'Delimiter', ';');
 
 %convert table to structured array 
@@ -188,6 +147,7 @@ for m=1:1
 
 %read image indexes of closest matches
 for i=1:length(iNN)
+<<<<<<< HEAD
     imgnum(i)=featInd(find(iNN(i)==featInd(:,2)),1);
     
 %keep a tally of images matched to each feature of input image 
@@ -206,15 +166,6 @@ for i=1:length(iNN)
 
 end;
     
-
-end;
-
-
-%extracting IRMA codes of the closest matches obtained through LSH by
-%providing indexes and path to csv file containing IRMA codes, and writing
-%them to a file 
-
-
 %extractIRMAcode function needs to be modified
 
 %extracting IRMA codes of the closest matches obtained through LSH by
@@ -223,4 +174,31 @@ end;
 %extractIRMAcode(c, imgnum);
 %type test.txt
 
+end;
 
+
+
+
+
+=======
+    imgnum(i)=floor(iNN(i)/10)+1;
+    i=i+1;
+end
+%%
+%TODO: this is a super hackish way to make the relative path absolute
+%before passing to a function, to work around errors with readtable
+currAbsPath = cd;
+cd ../..;
+newPath = cd;
+filepath= sprintf('%s/IRMA/2009/Irma Code Training/ImageCLEFmed2009_train_codes.02.csv', newPath)
+cd(currAbsPath);
+imgnum = 10
+%extracting IRMA codes of the closest matches obtained through LSH by
+%providing indexes and path to csv file containing IRMA codes, and writing
+%them to a file 
+extractIRMAcode(filepath, imgnum);
+>>>>>>> f2d7dc456823b2d57c982eecb3cff2215967f1fc
+    
+
+%%
+%getAllIRMACodes(
