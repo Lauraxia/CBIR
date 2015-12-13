@@ -11,6 +11,7 @@ testFiles = dir(path);
 %end of the training files to distinguish them later:
 trainingLength = length(files);
 files = vertcat(files, testFiles);
+testingLength = length(files) - trainingLength;
 
 i=1;
 for file = files'
@@ -119,18 +120,18 @@ end
 n=1;
 
 for i =1:trainingLength
+    currCount = strongestSURFfeatures{i}.Count;
     
-    for j=1:strongestSURFfeatures{i}.Count
+    %lookup table to keep track of which features belong to which image 
+    featInd(n:n+currCount) = i;
+    
+    for j=1:currCount
         
         currFeat=strongestSURFfeatures{i}(j);
         
         inputFeat(:,n)=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
             double(currFeat.Orientation); double(currFeat.Location(1));...
             double(currFeat.Location(2)); double(currFeat.Metric)] ;
-        
-        %lookup table to keep track of which features belong to which
-        %image 
-        featInd(n,1:2) = [i n];
         n=n+1;
     end
     
@@ -138,25 +139,24 @@ for i =1:trainingLength
 end
 
 %% saving features from testing images to array 
-% this needs to be fixed!!
+n=1;
 
-% n=1;
-% 
-% for i = trainingLength+1:testingLength+trainingLength
-%     
-%     for j=1:length(strongestSURFfeatures{i})
-%         
-%         currFeat=strongestSURFfeatures{i}(j);
-%         
-%         testFeat(:,n)=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
-%             double(currFeat.Orientation); double(currFeat.Location(1));...
-%             double(currFeat.Location(2)); double(currFeat.Metric)] ;
-%         
-%        
-%         n=n+1;
-%     end
-% end
-
+for i = trainingLength+1:testingLength+trainingLength
+    
+    currCount = strongestSURFfeatures{i}.Count;
+    
+    %lookup table to keep track of which features belong to which image 
+    testFeatInd(n:n+currCount) = i;
+    
+    for j=1:currCount        
+        currFeat=strongestSURFfeatures{i}(j);
+        
+        testFeat(:,n)=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
+            double(currFeat.Orientation); double(currFeat.Location(1));...
+            double(currFeat.Location(2)); double(currFeat.Metric)] ;
+        n=n+1;
+    end
+end
 
 %% creating lsh data structure for input features
 addpath('../lshcode');
@@ -165,51 +165,63 @@ Te=lsh('e2lsh', 50,30,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
 
 %% providing query feature to lsh to find closest matches 
 
-rNN=21;
-j=1;
-tally=zeros((rNN)*numSURF,2);
+rNN=21; %?!?!
 %read in csv file provided for IRMA database as a table data structure
 %%
 %TODO: this is a super hackish way to make the relative path absolute
 %before passing to a function, to work around MATLAB bug with readtable...
 %still not working unless you use an absolute path *from command window*
-currAbsPath = cd;
-cd ../..;
-newPath = cd;
-filepath= sprintf('%s/IRMA/2009/Irma Code Training/ImageCLEFmed2009_train_codes.02.csv', newPath)
-cd(currAbsPath);
-t=readtable(filepath, 'Delimiter', ';');
+% currAbsPath = cd;
+% cd ../..;
+% newPath = cd;
+% filepath= sprintf('%s/IRMA/2009/Irma Code Training/ImageCLEFmed2009_train_codes.02.csv', newPath)
+% cd(currAbsPath);
+% t=readtable(filepath, 'Delimiter', ';');
+% 
+% %convert table to structured array 
+% c=table2struct(t(:,1:2));
 
-%convert table to structured array 
-c=table2struct(t(:,1:2));
-
-for m=1:1
-[iNN,numcand]=lshlookup(inputFeat(:,m),inputFeat,Te,'k',rNN);
-
-%read image indexes of closest matches
-for i=1:length(iNN)
-    imgnum(i)=featInd(find(iNN(i)==featInd(:,2)),1);
+%go through every test image:
+currTestFeat = 1;
+for currImg = (trainingLength + 1):(trainingLength + testingLength)
     
-%keep a tally of images matched to each feature of input image 
-%currently not working, giving an error 'Index exceeds matrix dimensions'
+    %do lsh on every feature of the current image, and keep a tally:
+    tally = [];
+    while (testFeatInd(currTestFeat) == currImg) && (currTestFeat <= length(testFeat))
+        %iNN = indecides of matches, numcand = length of iNN?! except
+        %apparently it isn't.... TODO look up
+        [iNN,numcand]=lshlookup(testFeat(:,currTestFeat),inputFeat,Te,'k',rNN);
+        
+        %add all hits for this feature to the tally for the current image:
+        for i=1:length(iNN)
+            %find what image number this feature is from:
+            hitImg = featInd(iNN(i));
+            
+            if isempty(tally)
+                %this is the first feature in the tally:
+                tally(1, 1:2)=[hitImg 1];
+            else
+                %check to see if we've already found this feature's image:
+                index=find(hitImg == tally(:,1));
+                if ~isempty(index)
+                    %we've found this image before, so increment tally:
+                    tally(index,2)=tally(index,2)+1;
+                else
+                    %new image, so add a spot for it with a count of 1:
+                    tally(end+1,:)=[hitImg 1];
+                end
+            end
+        end
+        currTestFeat = currTestFeat + 1;
+    end
     
-% index=find((c(imgnum(i)).image_id==tally(:,1)))
-%  
-%     if isempty(index)==0
-%         tally(index,2)=tally(index,2)+1;
-%     else
-%         tally(j,:)=[c(imgnum(i)).image_id; 1];
-%         j=j+1;
-%       
-%     end
-%     
+    %now we've done all features of the current image, so check the
+    %consensus:
+    sum(tally(:,2)>1)
 
-end;
+end 
     
-
-end;
-
-
+%%
 %extracting IRMA codes of the closest matches obtained through LSH by
 %providing indexes and path to csv file containing IRMA codes, and writing
 %them to a file 
