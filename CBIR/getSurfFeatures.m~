@@ -127,15 +127,11 @@ for i =1:trainingLength
     
     for j=1:currCount
         
-%         currFeat=strongestSURFfeatures{i}(j);
-%         
-%         inputFeat(:,n)=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
-%             double(currFeat.Orientation); double(currFeat.Location(1));...
-%             double(currFeat.Location(2)); double(currFeat.Metric)] ;
-%         
-        %lookup table to keep track of which features belong to which image 
-        %TODO -- we really don't need to store n in column 2, it's just the index
-        %featInd(n,1:2) = [i n];
+        currFeat=strongestSURFfeatures{i}(j);
+        
+        inputFeat(:,n)=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
+            double(currFeat.Orientation); double(currFeat.Location(1));...
+            double(currFeat.Location(2)); double(currFeat.Metric)] ;
         n=n+1;
     end
     
@@ -143,8 +139,6 @@ for i =1:trainingLength
 end
 
 %% saving features from testing images to array 
-% this needs to be fixed!!
-
 n=1;
 
 for i = trainingLength+1:testingLength+trainingLength
@@ -163,7 +157,6 @@ for i = trainingLength+1:testingLength+trainingLength
         n=n+1;
     end
 end
-
 
 %% creating lsh data structure for input features
 addpath('../lshcode');
@@ -187,6 +180,8 @@ rNN=21; %?!?!
 % 
 % %convert table to structured array 
 % c=table2struct(t(:,1:2));
+
+bestMatch = zeros(testingLength, 1);
 
 %go through every test image:
 currTestFeat = 1;
@@ -224,11 +219,43 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
     
     %now we've done all features of the current image, so check the
     %consensus:
-    sum(tally(:,2)>1)
-
+    if isempty(tally)
+        fprintf('Nothing found! :( %d lengthINN = %d\n', currImg, length(iNN));
+        bestMatch(currImg - trainingLength) = 0;
+    else
+        sum(tally(:,2)>1);
+        best = sortrows(tally, -2);
+        bestMatch(currImg - trainingLength) = best(1,1);
+    end
 end 
     
-%%
+%% output results to files so that we can check the official IRMA error:
+
+%TODO: if no match was found, we have a 0 -- for now, we'll pretend
+%it's the first image to make things work out:
+bestMatch(bestMatch == 0) = 1;
+
+%convert training, testing indices to actual image ids:
+realImageIDs = zeros(length(files), 1);
+i=1;
+for file = files'
+    %remove file extension and get the image number from filename:
+    realImageIDs(i) = str2double(regexprep(file.name, '.png', ''));
+    i=i+1;
+end
+
+tempCSV = cell2mat(irmaCSV(:,1));
+for i=1:testingLength
+    %now look up the real ID of each test image:
+    currID = realImageIDs(i+trainingLength);
+    %and also that of its best match, and use that to retrieve its IRMA code:
+    matchID = realImageIDs(bestMatch(i));
+    matchIRMA = irmaCSV(tempCSV == matchID, 2);
+    fprintf('%d %s\n', currID, matchIRMA);
+end
+
+
+
 %extracting IRMA codes of the closest matches obtained through LSH by
 %providing indexes and path to csv file containing IRMA codes, and writing
 %them to a file 

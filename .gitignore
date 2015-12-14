@@ -7,6 +7,7 @@ E2LSH-0.1/*.params
 
 #and output from features:
 *.txt*
+!IRMA Error/*.txt
 
 #and temp files
 *~

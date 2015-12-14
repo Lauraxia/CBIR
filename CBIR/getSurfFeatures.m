@@ -3,6 +3,17 @@ trainPath = '../../IRMA/2009/Training Data/ImageCLEFmed2009_train.02/';
 path = sprintf('%s*.png', trainPath);
 files = dir(path);
 
+%sanitize to remove images named "blah - Copy.png":
+i=1;
+for file = files'
+   if regexp(file.name, 'Copy')
+      files(i) = []; 
+      fprintf('deleted %s\n', file.name);
+   else
+       i = i+1;
+   end
+end
+
 testPath = '../../IRMA/2009/Testing Data/';
 path = sprintf('%s*.png', testPath);
 testFiles = dir(path);
@@ -47,7 +58,7 @@ fprintf(['\n' repmat('.',1,(floor(length(files)/100))) '\n\n']);
 
 %calculate SURF features for them (using a low enough threshold to
 %guarantee a min number of features to use)
-parfor i=1:length(files)
+for i=1:length(files) %changed so not a parfor -- disk access is the delimiting factor, not cpu
    SURFfeatures{i} = detectSURFFeatures(irma{i}, 'MetricThreshold', 200);
    strongestSURFfeatures{i}=SURFfeatures{i}.selectStrongest(numSURF);
 
@@ -181,6 +192,8 @@ rNN=21; %?!?!
 % %convert table to structured array 
 % c=table2struct(t(:,1:2));
 
+bestMatch = zeros(testingLength, 1);
+
 %go through every test image:
 currTestFeat = 1;
 for currImg = (trainingLength + 1):(trainingLength + testingLength)
@@ -217,11 +230,54 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
     
     %now we've done all features of the current image, so check the
     %consensus:
-    sum(tally(:,2)>1)
-
+    if isempty(tally)
+        fprintf('Nothing found! :( %d lengthINN = %d\n', currImg, length(iNN));
+        bestMatch(currImg - trainingLength) = 0;
+    else
+        sum(tally(:,2)>1);
+        best = sortrows(tally, -2);
+        bestMatch(currImg - trainingLength) = best(1,1);
+    end
 end 
     
+%% output results to files so that we can check the official IRMA error:
+
+%TODO: if no match was found, we have a 0 -- for now, we'll pretend
+%it's a random image to make things work out:
+bestMatch(bestMatch == 0) = 1;
+
+%convert training, testing indices to actual image ids:
+realImageIDs = zeros(length(files), 1);
+i=1;
+for file = files'
+    %remove file extension and get the image number from filename:
+    realImageIDs(i) = str2double(regexprep(file.name, '.png', ''));
+    if isnan(realImageIDs(i) )
+        fprintf('%s isnan!!!\n', file.name);
+    end
+    i=i+1;
+end
 %%
+%since we can't do == on a cell array...
+tempCSV = cell2mat(irmaCSV(:,1));
+
+fileID = fopen('output.txt', 'w');
+for i=1:testingLength
+    %now look up the real ID of each test image:
+    currID = realImageIDs(i+trainingLength);
+    %and also that of its best match, and use that to retrieve its IRMA code:
+    matchID = realImageIDs(bestMatch(i));
+    matchIRMA = irmaCSV(tempCSV == matchID, 2);
+    
+    
+    fprintf(fileID, '%d %s\n', currID, matchIRMA{1});
+end
+%% was for saving the ground truth to a form the python error script can read:
+fileID = fopen('outputIRMAtestclasses.txt', 'w');
+for i=1:1733
+    fprintf(fileID, '%d %s\n', ImageCLEFmed2009testcodes{i,1}, ImageCLEFmed2009testcodes{i,2});
+end
+
 %extracting IRMA codes of the closest matches obtained through LSH by
 %providing indexes and path to csv file containing IRMA codes, and writing
 %them to a file 
