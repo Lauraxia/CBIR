@@ -2,9 +2,10 @@ clc, clear all, close all
 
 %% params:
 fdir = '';
+uniqueFileID = '_sec1';
 
 %% load training data for svm:
-path = sprintf('%straining.txt', fdir);
+path = sprintf('%straining%s.txt', fdir, uniqueFileID);
 trainingData = csvread(path);
 
 %% find normalization factors:
@@ -17,7 +18,9 @@ for i=1:numFeatures
     end
     trainingData(:, i+1) = trainingData(:, i+1) ./ scalingFactors(i);
 end
-save('scalingFactors.mat', 'scalingFactors');
+
+scalePath = sprintf('scalingFactors%s.mat', uniqueFileID);
+save(scalePath, 'scalingFactors');
 %TODO: handling negative data?!
 
 %% load things needed to find consensus:
@@ -29,7 +32,7 @@ load('classes.mat');
 %% rebalance data to avoid training bias:
 
 %find how many training features of each class exist:
-freq = hist(trainingData(:,1), 193);
+freq = hist(trainingData(:,1), max(trainingData(:,1)));
 
 %we want to get rid of some from classes that have too many
 %TODO: play around with threshold -- they are still pretty unbalanced, but
@@ -64,18 +67,21 @@ model = svmtrain(trainingData(:, 1), double(trainingData(:, 2:end)), '-s 0 -t 2 
 display('Training complete.');
 
 % save model information for next time:
-save('model.mat', 'model');
+modelPath = sprintf('model%s.mat', uniqueFileID);
+save(modelPath, 'model');
 
 %% test with the following images:
 
 % to load saved model:
-%load('model.mat', 'model');
+%modelPath = sprintf('model%s.mat', uniqueFileID);
+%load(modelPath, 'model');
 
-path2 = sprintf('%stesting.txt', fdir);
+path2 = sprintf('%stesting%s.txt', fdir, uniqueFileID);
 testingData = csvread(path2);
 
 % scale:
-load('scalingFactors.mat', 'scalingFactors');
+scalePath = sprintf('scalingFactors%s.mat', uniqueFileID);
+load(scalePath, 'scalingFactors');
 for j=1:(length(testingData(1,:))-1)
     testingData(:, j+1) = testingData(:, j+1) ./ scalingFactors(j);
 end
@@ -85,11 +91,11 @@ end
 %end
 
 %% Save results:
-outpath = sprintf('%spredict.txt', fdir);
+outpath = sprintf('%spredict%s.txt', fdir, uniqueFileID);
 save(outpath, predict_label);
-outpath = sprintf('%saccuracy.txt', fdir);
+outpath = sprintf('%saccuracy%s.txt', fdir, uniqueFileID);
 save(outpath, accuracy);
-outpath = sprintf('%sprob.txt', fdir);
+outpath = sprintf('%sprob%s.txt', fdir, uniqueFileID);
 save(outpath, prob_values);
 
 
@@ -156,8 +162,8 @@ for file = files'
     i=i+1;
 end
 %%
-
-fileID = fopen('svmoutput.txt', 'w');
+savePath = sprintf('svmoutput%s.txt', uniqueFileID);
+fileID = fopen(savePath, 'w');
 for i=1:testingLength
     %now look up the real ID of each test image:
     currID = realImageIDs(i+trainingLength);

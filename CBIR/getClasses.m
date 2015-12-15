@@ -16,17 +16,21 @@ for i=1:length(classes{1}(:))
     %end
 end
 %%
-%for j=1:4
-	codes3{:,1} = unique(codes2a);
-    codes3{:,2} = unique(codes2b);
-    codes3{:,3} = unique(codes2c);
-    codes3{:,4} = unique(codes2d);
-%end
-%first = codes{:}(1));
+% get all possible classes for each code section:
+codes3{:,1} = unique(codes2a);
+codes3{:,2} = unique(codes2b);
+codes3{:,3} = unique(codes2c);
+codes3{:,4} = unique(codes2d);
 
-%%
-for i=1:length(classes{1}(:))
-    for j=1:length(codes{i})
-        codesHex{i,j} = hex2dec(codes{i}{j});
-    end
+% for i=1:length(classes{1}(:))
+%     for j=1:length(codes{i})
+%         codesHex{i,j} = hex2dec(codes{i}{j});
+%     end
+% end
+
+%% make class files for each section of the code:
+
+for i=1:4
+    
+    
 end
