@@ -63,8 +63,6 @@ strongestfeatures = cell(1, length(files));
 fprintf('Progress:\n');
 fprintf(['\n' repmat('.',1,(floor(length(files)/100))) '\n\n']);
 
-%calculate SURF features for them (using a low enough threshold to
-%guarantee a min number of features to use)
 for i=1:length(files) %changed so not a parfor -- disk access is the delimiting factor, not cpu
    SURFfeatures{i} = detectSURFFeatures(irma{i}, 'MetricThreshold', 200);
    strongestSURFfeatures{i}=SURFfeatures{i}.selectStrongest(numSURF);
@@ -164,13 +162,16 @@ bestMatch = zeros(testingLength, 1);
 
 %go through every test image:
 currTestFeat = 1;
+threshold=3;
+j=1;
+svmInput=[];
 for currImg = (trainingLength + 1):(trainingLength + testingLength)
     
     %do lsh on every feature of the current image, and keep a tally:
     tally = [];
     while (testFeatInd(currTestFeat) == currImg) && (currTestFeat <= length(testFeat))
-        %iNN = indecies of matches, numcand = length of iNN?! except
-        %apparently it isn't.... TODO look up
+        %iNN = indecides of matches, numcand = number of examined
+        %candidates in the lookup table 
         [iNN,numcand]=lshlookup(testFeat(:,currTestFeat),inputFeat,Te,'k',rNN);
         
         %add all hits for this feature to the tally for the current image:
@@ -205,8 +206,20 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
         sum(tally(:,2)>1);
         best = sortrows(tally, -2);
         bestMatch(currImg - trainingLength) = best(1,1);
+        
     end
-end 
+    
+%store test images ids with consensus below a threshold in a separate array to pass
+%to svm for further classification:
+
+
+    if max(best(:,2))<=threshold
+        svmInput(j)=currImg;
+        j=j+1;
+    end
+    
+end
+
     
 %% output results to files so that we can check the official IRMA error:
 
