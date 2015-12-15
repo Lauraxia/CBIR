@@ -48,6 +48,13 @@ for file = files'
        i
    end
 end
+%%
+save('trainingTestingFiles.mat', 'irma', '-v7.3'); %must use recent version since large variable
+save('trainingTestingLengths.mat', 'trainingLength', 'testingLength');
+
+%% if we want to use preloaded files instead:
+load('trainingTestingFiles.mat', 'irma');
+load('trainingTestingLengths.mat', 'trainingLength', 'testingLength');
 
 %% calculate SURF features for them (using a low enough threshold to guarantee a min number of features to use)
 numSURF=10;
@@ -74,36 +81,11 @@ save('strongestSURFfeatures.mat', 'strongestSURFfeatures');
 load('strongestSURFfeatures.mat', 'strongestSURFfeatures');
 
 %%
-testPath = fopen('../../IRMA/2009/Catergories/08-classes.txt');
-classes = textscan(testPath, '%d;%s');
-fclose(testPath);
-
-%sort the classes, so easier to find matches:
-[test, ind] = sort(classes{1,2})
-
-%%
 %load csv with irma code for each image, then match up with what class that is:
 %workaround to avoid strange readtable/etc bug -- saved as a mat
 load('irmaCSV.mat')
 load('irmaCSVtest.mat')
 
-for i=1:length(irmaCSV)
-    irmaCSV{i,3} = find(strcmp(classes{2}, irmaCSV{i,2}));
-    
-    %so we'll know if something wasn't found:
-    if irmaCSV{i,3} == 0 
-       fprintf('very bad %d\n', i);
-    end
-end
-%%
-for i=1:length(irmaCSVtest)
-    irmaCSVtest{i,3} = find(strcmp(classes{2}, irmaCSVtest{i,2}));
-    
-    %so we'll know if something wasn't found:
-    if irmaCSVtest{i,3} == 0 
-       fprintf('very bad %d\n', i);
-    end
-end
 %%
 saveSURFtoFile('training.txt', strongestSURFfeatures(1:trainingLength), 10, irmaCSV(:,3));
 saveSURFtoFile('testing.txt', strongestSURFfeatures(trainingLength+1:end), 10, irmaCSVtest(:,3));
@@ -148,6 +130,7 @@ for i =1:trainingLength
     
 
 end
+save('featInd.mat', 'featInd');
 
 %% saving features from testing images to array 
 n=1;
@@ -168,30 +151,15 @@ for i = trainingLength+1:testingLength+trainingLength
         n=n+1;
     end
 end
+save('testFeatInd.mat', 'testFeatInd');
 
 %% creating lsh data structure for input features
 addpath('../lshcode');
 Te=lsh('e2lsh', 50,30,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
 
+%% Find lsh matches and their consensus:
 
-%% providing query feature to lsh to find closest matches 
-
-rNN=21; %?!?!
-%read in csv file provided for IRMA database as a table data structure
-%%
-%TODO: this is a super hackish way to make the relative path absolute
-%before passing to a function, to work around MATLAB bug with readtable...
-%still not working unless you use an absolute path *from command window*
-% currAbsPath = cd;
-% cd ../..;
-% newPath = cd;
-% filepath= sprintf('%s/IRMA/2009/Irma Code Training/ImageCLEFmed2009_train_codes.02.csv', newPath)
-% cd(currAbsPath);
-% t=readtable(filepath, 'Delimiter', ';');
-% 
-% %convert table to structured array 
-% c=table2struct(t(:,1:2));
-
+rNN=21; %number of desired matches for lsh
 bestMatch = zeros(testingLength, 1);
 
 %go through every test image:
@@ -201,7 +169,7 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
     %do lsh on every feature of the current image, and keep a tally:
     tally = [];
     while (testFeatInd(currTestFeat) == currImg) && (currTestFeat <= length(testFeat))
-        %iNN = indecides of matches, numcand = length of iNN?! except
+        %iNN = indecies of matches, numcand = length of iNN?! except
         %apparently it isn't.... TODO look up
         [iNN,numcand]=lshlookup(testFeat(:,currTestFeat),inputFeat,Te,'k',rNN);
         
@@ -273,22 +241,7 @@ for i=1:testingLength
     fprintf(fileID, '%d %s\n', currID, matchIRMA{1});
 end
 %% was for saving the ground truth to a form the python error script can read:
-fileID = fopen('outputIRMAtestclasses.txt', 'w');
-for i=1:1733
-    fprintf(fileID, '%d %s\n', ImageCLEFmed2009testcodes{i,1}, ImageCLEFmed2009testcodes{i,2});
-end
-
-%extracting IRMA codes of the closest matches obtained through LSH by
-%providing indexes and path to csv file containing IRMA codes, and writing
-%them to a file 
-
-
-%extractIRMAcode function needs to be modified
-
-%extracting IRMA codes of the closest matches obtained through LSH by
-%providing indexes and path to csv file containing IRMA codes, and writing
-%them to a file 
-%extractIRMAcode(c, imgnum);
-%type test.txt
-
-
+% fileID = fopen('outputIRMAtestclasses.txt', 'w');
+% for i=1:1733
+%     fprintf(fileID, '%d %s\n', ImageCLEFmed2009testcodes{i,1}, ImageCLEFmed2009testcodes{i,2});
+% end
