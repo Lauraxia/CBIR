@@ -228,7 +228,7 @@ end
 bestMatch(bestMatch == 0) = 1;
 
 %convert training, testing indices to actual image ids:
-realImageIDs = zeros(length(files), 1);
+realImageIDs = zeros(trainingLength + testingLength, 1);
 i=1;
 for file = files'
     %remove file extension and get the image number from filename:

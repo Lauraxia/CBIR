@@ -22,7 +22,9 @@ save('scalingFactors.mat', 'scalingFactors');
 
 %% load things needed to find consensus:
 load('testFeatInd.mat');
+load('featInd.mat');
 load('trainingTestingLengths.mat');
+load('classes.mat');
 
 %% rebalance data to avoid training bias:
 
@@ -32,10 +34,9 @@ freq = hist(trainingData(:,1), 193);
 %we want to get rid of some from classes that have too many
 %TODO: play around with threshold -- they are still pretty unbalanced, but
 %not all classes are well-represented...
-threshold = median(freq)*2;
+threshold = median(freq);
 numToCull = freq - threshold;
-culledTrainingLength = trainingLength;
-
+%%
 for i=1:length(freq)
     if (numToCull(i) > 0)
         %these are the training elements equal to i, which we will cull some of:
@@ -43,12 +44,13 @@ for i=1:length(freq)
         %pick the desired amount of indices randomly:
         spotsToCull = randperm(freq(i), numToCull(i));
 
-        %and remove them from the trainingData, and trainingLength: 
+        %and remove them from the trainingData:
         trainingData(cullCanditates(spotsToCull), :) = [];
-        %testFeatInd(cullCanditates(spotsToCull)) = [];
-        culledTrainingLength = culledTrainingLength - numToCull(i);
+        featInd(cullCanditates(spotsToCull)) = [];
     end
 end
+%see what's left -- some training images might have had all their features culled:
+culledTrainingLength = length(unique(featInd));
 
 %% LIBSVM setup:
 % addpath to the libsvm toolbox and data
@@ -97,7 +99,7 @@ bestMatch = zeros(testingLength, 1);
 
 %go through every test image:
 currTestFeat = 1;
-for currImg = (culledTrainingLength + 1):(culledTrainingLength + testingLength)
+for currImg = (trainingLength + 1):(trainingLength + testingLength)
     
     %find classification result for every feature of the current image, and keep a tally:
     tally = [];
@@ -127,11 +129,11 @@ for currImg = (culledTrainingLength + 1):(culledTrainingLength + testingLength)
     %consensus:
     if isempty(tally)
         fprintf('Nothing found! :( %d\n', currImg);
-        bestMatch(currImg - culledTrainingLength) = 0;
+        bestMatch(currImg - trainingLength) = 0;
     else
         %sum(tally(:,2)>1);
         best = sortrows(tally, -2);
-        bestMatch(currImg - culledTrainingLength) = best(1,1);
+        bestMatch(currImg - trainingLength) = best(1,1);
         best(1,1:2)
     end
 end 
@@ -143,7 +145,7 @@ end
 bestMatch(bestMatch == 0) = 1;
 
 %convert training, testing indices to actual image ids:
-realImageIDs = zeros(length(files), 1);
+realImageIDs = zeros(trainingLength + testingLength, 1);
 i=1;
 for file = files'
     %remove file extension and get the image number from filename:

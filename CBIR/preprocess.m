@@ -32,3 +32,5 @@ end
 %%
 save('irmaCSV.mat', 'irmaCSV');
 save('irmaCSVtest.mat', 'irmaCSVtest');
+
+save('classes.mat', 'classes');
