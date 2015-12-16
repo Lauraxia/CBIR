@@ -2,7 +2,8 @@ clc, clear all, close all
 
 %% params:
 fdir = '';
-uniqueFileID = '_sec1';
+paths = {'_sub1', '_sub2', '_sub3', '_sub4'};
+uniqueFileID = paths{4};
 
 %% load training data for svm:
 path = sprintf('%straining%s.txt', fdir, uniqueFileID);
@@ -37,7 +38,7 @@ freq = hist(trainingData(:,1), max(trainingData(:,1)));
 %we want to get rid of some from classes that have too many
 %TODO: play around with threshold -- they are still pretty unbalanced, but
 %not all classes are well-represented...
-threshold = median(freq);
+threshold = median(freq)*3;
 numToCull = freq - threshold;
 %%
 for i=1:length(freq)
@@ -45,7 +46,7 @@ for i=1:length(freq)
         %these are the training elements equal to i, which we will cull some of:
         cullCanditates = find(trainingData(:,1) == i);
         %pick the desired amount of indices randomly:
-        spotsToCull = randperm(freq(i), numToCull(i));
+        spotsToCull = randperm(freq(i), int16(numToCull(i)));
 
         %and remove them from the trainingData:
         trainingData(cullCanditates(spotsToCull), :) = [];
@@ -92,11 +93,11 @@ end
 
 %% Save results:
 outpath = sprintf('%spredict%s.txt', fdir, uniqueFileID);
-save(outpath, predict_label);
+save(outpath, 'predict_label', '-ascii');
 outpath = sprintf('%saccuracy%s.txt', fdir, uniqueFileID);
-save(outpath, accuracy);
+save(outpath, 'accuracy', '-ascii');
 outpath = sprintf('%sprob%s.txt', fdir, uniqueFileID);
-save(outpath, prob_values);
+save(outpath, 'prob_values', '-ascii');
 
 
 %% Find the consensus between each feature:
@@ -144,11 +145,21 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
     end
 end 
     
-%% output results to files so that we can check the official IRMA error:
-
 %TODO: if no match was found, we have a 0 -- for now, we'll pretend
 %it's a random image to make things work out:
 bestMatch(bestMatch == 0) = 1;
+
+%% output best matches to file (for later collation with other subsets):
+
+savePath = sprintf('svmMatchOutput%s.txt', uniqueFileID);
+fileID = fopen(savePath, 'w');
+for i=1:testingLength
+    fprintf(fileID, '%d\n', bestMatch(i));
+end
+
+
+
+%% if this is an all-in-one classification (no subcodes), output results to files so that we can check the official IRMA error:
 
 %convert training, testing indices to actual image ids:
 realImageIDs = zeros(trainingLength + testingLength, 1);
