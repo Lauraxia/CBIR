@@ -101,21 +101,13 @@ addpath('../');
 i=1;
 for file = files'
     barcode{i} = extractRBC(irma{i}, 32, 32, 8, false);
-    i=i+1;
     fprintf('Extracting barcodes for image %d \r', i); 
-end
-
-%% calculate brisk features for images
-i=1;
-for file = files'
-    BRISKfeatures{i} = detectBRISKFeatures(irma{i}, 'MinContrast', 0.1);
-    strongestBRISKfeatures{i} = BRISKfeatures{i}.selectStrongest(10); 
     i=i+1;
-    fprintf('Calculating BRISK features for %d \r', i);
 end
 
 
-%% saving features from training images to array for input to lsh
+
+%% saving SURF features from training images to array for input to lsh
 n=1;
 
 for i =1:trainingLength
@@ -138,7 +130,7 @@ for i =1:trainingLength
 end
 save('featInd.mat', 'featInd');
 
-%% saving features from testing images to array 
+%% saving SURF features from testing images to array 
 n=1;
 
 for i = trainingLength+1:testingLength+trainingLength
@@ -159,6 +151,9 @@ for i = trainingLength+1:testingLength+trainingLength
 end
 save('testFeatInd.mat', 'testFeatInd');
 
+
+
+
 %% creating lsh data structure for input features
 addpath('../lshcode');
 Te=lsh('e2lsh', 50,30,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
@@ -167,14 +162,13 @@ Te=lsh('e2lsh', 50,30,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
 
 rNN=21; %number of desired matches for lsh
 bestMatch = zeros(testingLength, 1);
-
+best=[];
 %go through every test image:
 currTestFeat = 1;
 threshold=3;
 j=1;
 svmInput=[];
 for currImg = (trainingLength + 1):(trainingLength + testingLength)
-    
     %do lsh on every feature of the current image, and keep a tally:
     tally = [];
     while (testFeatInd(currTestFeat) == currImg) && (currTestFeat <= length(testFeat))
@@ -217,18 +211,17 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
         
     end
     
-%store test images ids with consensus below a threshold in a separate array to pass
-%to svm for further classification:
+%store test images ids with consensus below a threshold in a separate array
 
 
-    if max(best(:,2))<=threshold
+    if best(1,2)<threshold
         svmInput(j)=currImg;
         j=j+1;
     end
     
 end
 
-    
+
 %% output results to files so that we can check the official IRMA error:
 
 %TODO: if no match was found, we have a 0 -- for now, we'll pretend
@@ -261,6 +254,17 @@ for i=1:testingLength
     
     fprintf(fileID, '%d %s\n', currID, matchIRMA{1});
 end
+
+%% saving images with bad consensus to file for input to svm
+tempCSVtest=cell2mat(irmaCSVtest(:,1));
+for i=1:length(svmInput)
+    svmFeat(i)=strongestSURFfeatures(svmInput(i));
+    svmIRMAClass(i)=irmaCSVtest(find(realImageIDs(svmInput(i))== tempCSVtest(:,1)), 3)
+end
+
+saveSURFtoFile('svmInput.txt', svmFeat, 0, svmIRMAClass);
+
+
 %% was for saving the ground truth to a form the python error script can read:
 % fileID = fopen('outputIRMAtestclasses.txt', 'w');
 % for i=1:1733
