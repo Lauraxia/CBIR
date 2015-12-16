@@ -148,13 +148,14 @@ save('testFeatInd.mat', 'testFeatInd');
 
 %% creating lsh data structure for input features
 addpath('../lshcode');
-Te=lsh('e2lsh', 50,30,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
+Te=lsh('e2lsh', 50,20,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
 
 %% Find lsh matches and their consensus:
-
-rNN=21; %number of desired matches for lsh
+tic
+rNN=50; %number of desired matches for lsh
 bestMatch = zeros(testingLength, 1);
 best=[];
+
 %go through every test image:
 currTestFeat = 1;
 threshold=3;
@@ -163,6 +164,8 @@ svmInput=[];
 for currImg = (trainingLength + 1):(trainingLength + testingLength)
     %do lsh on every feature of the current image, and keep a tally:
     tally = [];
+    featTally=[featInd' zeros(length(featInd),1)];
+   
     while (testFeatInd(currTestFeat) == currImg) && (currTestFeat <= length(testFeat))
         %iNN = indecides of matches, numcand = number of examined
         %candidates in the lookup table 
@@ -187,6 +190,8 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
                     tally(end+1,:)=[hitImg 1];
                 end
             end
+            
+            
         end
         currTestFeat = currTestFeat + 1;
     end
@@ -207,8 +212,13 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
 
 
     if best(1,2)<threshold
-        svmInput(j)=currImg;
-        j=j+1;
+        
+        %keeping a tally of the features LSH hit with currTestFeat
+        for j=1:length(iNN)
+                %go through nearest neighbor features returned and update tally for
+                %each 
+                featTally(iNN(j),2)=featTally(iNN(j),2)+1;
+        end
     end
     
 end
@@ -246,7 +256,7 @@ for i=1:testingLength
     
     fprintf(fileID, '%d %s\n', currID, matchIRMA{1});
 end
-
+toc
 %% saving images with bad consensus to file for input to svm
 tempCSVtest=cell2mat(irmaCSVtest(:,1));
 for i=1:length(svmInput)
