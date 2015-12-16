@@ -88,6 +88,13 @@ load('irmaCSVtest.mat')
 saveSURFtoFile('training.txt', strongestSURFfeatures(1:trainingLength), 10, irmaCSV(:,3));
 saveSURFtoFile('testing.txt', strongestSURFfeatures(trainingLength+1:end), 10, irmaCSVtest(:,3));
 
+%save subsections:
+for i=1:4
+    trainPath = sprintf(
+    saveSURFtoFile('training.txt', strongestSURFfeatures(1:trainingLength), 10, irmaCSV(:,3));
+    saveSURFtoFile('testing.txt', strongestSURFfeatures(trainingLength+1:end), 10, irmaCSVtest(:,3));
+end
+
 %% calculate radon barcodes (RBCs) for each image 
 addpath('../');
 i=1;
@@ -220,11 +227,6 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
     
 end
 
-
-
-
-
-    
     
 %% output results to files so that we can check the official IRMA error:
 
@@ -233,7 +235,7 @@ end
 bestMatch(bestMatch == 0) = 1;
 
 %convert training, testing indices to actual image ids:
-realImageIDs = zeros(length(files), 1);
+realImageIDs = zeros(trainingLength + testingLength, 1);
 i=1;
 for file = files'
     %remove file extension and get the image number from filename:

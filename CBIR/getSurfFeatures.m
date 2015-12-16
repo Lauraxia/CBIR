@@ -88,6 +88,14 @@ load('irmaCSVtest.mat')
 saveSURFtoFile('training.txt', strongestSURFfeatures(1:trainingLength), 10, irmaCSV(:,3));
 saveSURFtoFile('testing.txt', strongestSURFfeatures(trainingLength+1:end), 10, irmaCSVtest(:,3));
 
+%save subsections:
+for i=1:4
+    trainPath = sprintf('training_sub%d.txt', i);
+    testPath = sprintf('testing_sub%d.txt', i);
+    saveSURFtoFile(trainPath, strongestSURFfeatures(1:trainingLength), 0, irmaCSV(:,i+3));
+    saveSURFtoFile(testPath, strongestSURFfeatures(trainingLength+1:end), 0, irmaCSVtest(:,i+3));
+end
+
 %% calculate radon barcodes (RBCs) for each image 
 addpath('../');
 i=1;
