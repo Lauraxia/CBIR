@@ -23,7 +23,7 @@ testFiles = dir(path);
 trainingLength = length(files);
 files = vertcat(files, testFiles);
 testingLength = length(files) - trainingLength;
-
+%%
 i=1;
 for file = files'
    %add path for either training or testing folder, depending on file:
@@ -153,7 +153,9 @@ save('testFeatInd.mat', 'testFeatInd');
 
 
 
-
+%%
+load('featInd.mat');
+load('testFeatInd.mat');
 %% creating lsh data structure for input features
 addpath('../lshcode');
 Te=lsh('e2lsh', 50,20,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
@@ -166,19 +168,21 @@ best=[];
 
 %go through every test image:
 currTestFeat = 1;
-threshold=3;
+threshold = 2;    %3;
 j=1;
-svmInput=[];
+overallFeatTally = [];
 for currImg = (trainingLength + 1):(trainingLength + testingLength)
     %do lsh on every feature of the current image, and keep a tally:
     tally = [];
     featTally=[featInd' zeros(length(featInd),1)];
    
+    
     while (testFeatInd(currTestFeat) == currImg) && (currTestFeat <= length(testFeat))
         %iNN = indecides of matches, numcand = number of examined
         %candidates in the lookup table 
         [iNN,numcand]=lshlookup(testFeat(:,currTestFeat),inputFeat,Te,'k',rNN);
         
+        weight = 1;
         %add all hits for this feature to the tally for the current image:
         for i=1:length(iNN)
             %find what image number this feature is from:
@@ -186,21 +190,29 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
             
             if isempty(tally)
                 %this is the first feature in the tally:
-                tally(1, 1:2)=[hitImg 1];
+                tally(1, 1:2)=[hitImg weight];
             else
                 %check to see if we've already found this feature's image:
                 index=find(hitImg == tally(:,1));
                 if ~isempty(index)
                     %we've found this image before, so increment tally:
-                    tally(index,2)=tally(index,2)+1;
+                    tally(index,2)=tally(index,2)+weight;
                 else
                     %new image, so add a spot for it with a count of 1:
-                    tally(end+1,:)=[hitImg 1];
+                    tally(end+1,:)=[hitImg weight];
                 end
             end
-            
-            
+            if (weight > 0.1)
+                weight = weight -0.05; %* 0.9;
+            end
         end
+        
+        %keeping a tally of the features LSH hit with currTestFeat
+        for j=1:length(iNN)
+            %go through nearest neighbor features returned and update tally for each 
+            featTally(iNN(j),2)=featTally(iNN(j),2)+1;
+        end
+        
         currTestFeat = currTestFeat + 1;
     end
     
@@ -216,17 +228,10 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
         
     end
     
-%store test images ids with consensus below a threshold in a separate array
-
-
+    %store test images ids with consensus below a threshold in a separate array
     if best(1,2)<threshold
-        
-        %keeping a tally of the features LSH hit with currTestFeat
-        for j=1:length(iNN)
-                %go through nearest neighbor features returned and update tally for
-                %each 
-                featTally(iNN(j),2)=featTally(iNN(j),2)+1;
-        end
+        overallFeatTally{end+1, 1} = currImg;
+        overallFeatTally{end, 2} = featTally;
     end
     
 end
@@ -253,7 +258,7 @@ end
 %since we can't do == on a cell array...
 tempCSV = cell2mat(irmaCSV(:,1));
 
-fileID = fopen('output.txt', 'w');
+fileID = fopen('output_weighted2.txt', 'w');
 for i=1:testingLength
     %now look up the real ID of each test image:
     currID = realImageIDs(i+trainingLength);
@@ -275,6 +280,56 @@ end
 saveSURFtoFile('svmInput.txt', svmFeat, 0, svmIRMAClass);
 
 
+%% saving BoF-style tally for all images with bad consensus to file for SVM input:
+tempCSVtest=cell2mat(irmaCSVtest(:,1));
+
+%fileID = fopen('output_weighted2.txt', 'w');
+bofRealIds = realImageIDs(cell2mat(overallFeatTally(:,1)));
+fopen('testingbof.txt', 'w');
+%dlmwrite('output_weighted2.txt', horzcat(bofRealIds, overallFeatTally{:,2}(:,2)
+for i=1:length(overallFeatTally)
+    
+    bofToWrite = horzcat(bofRealIds(i), overallFeatTally{i,2}(:,2)');
+    dlmwrite('testingbof.txt', bofToWrite, '-append');
+end
+%dlmwrite('testingbof.txt', bofToWrite, ' ');
+
+
+%% Save SVM training data -- hit frequency for all training images on lsh table
+tic
+fopen('trainingbof.txt', 'w');
+
+bofToWrite = [];
+%go through every training image:
+currTestFeat = 1;
+j=1;
+overallTrainingTally = [];
+for currImg = 1:trainingLength
+    %do lsh on every feature of the current image, and keep a tally:
+    featTally = zeros(length(featInd),1);
+    
+    while (testFeatInd(currTestFeat) == currImg) && (currTestFeat <= length(testFeat))
+        %iNN = indecides of matches, numcand = number of examined
+        %candidates in the lookup table 
+        [iNN,numcand]=lshlookup(testFeat(:,currTestFeat),inputFeat,Te,'k',rNN);
+        
+        %keeping a tally of the features LSH hit with currTestFeat
+        for j=1:length(iNN)
+            %go through nearest neighbor features returned and update tally for each 
+            featTally(iNN(j))=featTally(iNN(j))+1;
+        end
+        
+        currTestFeat = currTestFeat + 1;
+    end
+
+    bofToWrite(currImg,:) = horzcat(realImageIDs(i), featTally');
+    %dlmwrite('trainingbof.txt', bofToWrite, '-append');
+    
+end
+toc
+tic
+save('trainingbof.mat', 'bofToWrite');
+toc
 %% was for saving the ground truth to a form the python error script can read:
 % fileID = fopen('outputIRMAtestclasses.txt', 'w');
 % for i=1:1733

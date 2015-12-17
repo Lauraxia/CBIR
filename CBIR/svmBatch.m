@@ -3,11 +3,16 @@ clc, clear all, close all
 %% params:
 fdir = '';
 paths = {'_sub1', '_sub2', '_sub3', '_sub4'};
-uniqueFileID = paths{4};
+uniqueFileID = 'bof';%paths{4};
+trainingDataIsFromMat = 1;
 
 %% load training data for svm:
 path = sprintf('%straining%s.txt', fdir, uniqueFileID);
-trainingData = csvread(path);
+if (trainingDataIsFromMat)
+    load(path, 'trainingData');
+else
+    trainingData = csvread(path);
+end
 
 %% find normalization factors:
 numFeatures = length(trainingData(1,:))-1;
