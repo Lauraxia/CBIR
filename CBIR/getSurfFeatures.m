@@ -269,6 +269,7 @@ for i=1:testingLength
     
     fprintf(fileID, '%d %s\n', currID, matchIRMA{1});
 end
+
 toc
 %% saving images with bad consensus to file for input to svm
 tempCSVtest=cell2mat(irmaCSVtest(:,1));
@@ -278,6 +279,10 @@ for i=1:length(svmInput)
 end
 
 saveSURFtoFile('svmInput.txt', svmFeat, 0, svmIRMAClass);
+
+%% appending svm output file to lsh output file 
+
+system('cat output_weighted2%s.txt svmoutput%s.txt > output.txt');
 
 
 %% saving BoF-style tally for all images with bad consensus to file for SVM input:
