@@ -156,9 +156,14 @@ save('testFeatInd.mat', 'testFeatInd');
 %%
 load('featInd.mat');
 load('testFeatInd.mat');
-%% creating lsh data structure for input features
+%% creating lsh data structure for input features, and then save it:
 addpath('../lshcode');
 Te=lsh('e2lsh', 50,20,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
+
+save('lshtable.mat', 'Te');
+
+%% or load previous table:
+load('lshtable.mat');
 
 %% Find lsh matches and their consensus:
 tic
@@ -169,7 +174,7 @@ byFeature = false;
 
 %go through every test image:
 currTestFeat = 1;
-threshold = 30;%2;    %3;
+threshold = 3;%2;    %3;
 j=1;
 overallFeatTally = [];
 for currImg = (trainingLength + 1):(trainingLength + testingLength)
@@ -285,21 +290,23 @@ for i=1:testingLength
 end
 toc
 %% saving images with bad consensus to file for input to svm
-tempCSVtest=cell2mat(irmaCSVtest(:,1));
-for i=1:length(svmInput)
-    svmFeat(i)=strongestSURFfeatures(svmInput(i));
-    svmIRMAClass(i)=irmaCSVtest(find(realImageIDs(svmInput(i))== tempCSVtest(:,1)), 3)
-end
-
-saveSURFtoFile('svmInput.txt', svmFeat, 0, svmIRMAClass);
+% tempCSVtest=cell2mat(irmaCSVtest(:,1));
+% for i=1:length(svmInput)
+%     svmFeat(i)=strongestSURFfeatures(svmInput(i));
+%     svmIRMAClass(i)=irmaCSVtest(find(realImageIDs(svmInput(i))== tempCSVtest(:,1)), 3)
+% end
+% 
+% saveSURFtoFile('svmInput.txt', svmFeat, 0, svmIRMAClass);
 
 
 %% saving BoF-style tally for all images with bad consensus to file for SVM input:
 tempCSVtest=cell2mat(irmaCSVtest(:,1));
 
+outpath = 'testingbof_sub.txt';
+
 %fileID = fopen('output_weighted2.txt', 'w');
 bofRealIds = realImageIDs(cell2mat(overallFeatTally(:,1)));
-fopen('testingbof.txt', 'w');
+fopen(outpath, 'w');
 %dlmwrite('output_weighted2.txt', horzcat(bofRealIds, overallFeatTally{:,2}(:,2)
 for i=1:length(overallFeatTally)
     svmIRMAClass = irmaCSVtest(find(bofRealIds(i)== tempCSVtest(:,1)), 3);
@@ -308,7 +315,7 @@ for i=1:length(overallFeatTally)
     else
         bofToWrite = horzcat(svmIRMAClass, overallFeatTally{i,2}(:,1)');
     end
-    dlmwrite('testingbof.txt', bofToWrite, '-append');
+    dlmwrite(outpath, bofToWrite, '-append');
 end
 %dlmwrite('testingbof.txt', bofToWrite, ' ');
 

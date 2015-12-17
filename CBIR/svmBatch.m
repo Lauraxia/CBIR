@@ -4,6 +4,7 @@ clc, clear all, close all
 fdir = '';
 paths = {'_sub1', '_sub2', '_sub3', '_sub4'};
 uniqueFileID = 'bof';%paths{4};
+testingSubsetPath = '_sub';
 trainingDataIsFromMat = 0;
 
 %% load training data for svm:
@@ -82,7 +83,7 @@ save(modelPath, 'model');
 %modelPath = sprintf('model%s.mat', uniqueFileID);
 %load(modelPath, 'model');
 
-path2 = sprintf('%stesting%s.txt', fdir, uniqueFileID);
+path2 = sprintf('%stesting%s%s.txt', fdir, uniqueFileID, testingSubsetPath);
 testingData = csvread(path2);
 
 % scale:
@@ -97,11 +98,11 @@ end
 %end
 
 %% Save results:
-outpath = sprintf('%spredict%s.txt', fdir, uniqueFileID);
+outpath = sprintf('%spredict%s%s.txt', fdir, uniqueFileID, testingSubsetPath);
 save(outpath, 'predict_label', '-ascii');
-outpath = sprintf('%saccuracy%s.txt', fdir, uniqueFileID);
+outpath = sprintf('%saccuracy%s%s.txt', fdir, uniqueFileID, testingSubsetPath);
 save(outpath, 'accuracy', '-ascii');
-outpath = sprintf('%sprob%s.txt', fdir, uniqueFileID);
+outpath = sprintf('%sprob%s%s.txt', fdir, uniqueFileID, testingSubsetPath);
 save(outpath, 'prob_values', '-ascii');
 
 
@@ -161,7 +162,7 @@ end
 
 %% output best matches to file (for later collation with other subsets):
 
-savePath = sprintf('svmMatchOutput%s.txt', uniqueFileID);
+savePath = sprintf('svmMatchOutput%s%s.txt', uniqueFileID, testingSubsetPath);
 fileID = fopen(savePath, 'w');
 for i=1:testingLength
     fprintf(fileID, '%d\n', bestMatch(i));
@@ -183,9 +184,9 @@ for file = files'
     i=i+1;
 end
 %%
-savePath = sprintf('svmoutput%s.txt', uniqueFileID);
+savePath = sprintf('svmoutput%s%s.txt', uniqueFileID, testingSubsetPath);
 fileID = fopen(savePath, 'w');
-for i=1:testingLength
+for i=1:length(testingData(:,1))
     %now look up the real ID of each test image:
     currID = realImageIDs(i+trainingLength);
     %and also the best guess at its IRMA code:
