@@ -156,19 +156,25 @@ save('testFeatInd.mat', 'testFeatInd');
 %%
 load('featInd.mat');
 load('testFeatInd.mat');
-%% creating lsh data structure for input features
+%% creating lsh data structure for input features, and then save it:
 addpath('../lshcode');
 Te=lsh('e2lsh', 50,20,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
+
+save('lshtable.mat', 'Te');
+
+%% or load previous table:
+load('lshtable.mat');
 
 %% Find lsh matches and their consensus:
 tic
 rNN=50; %number of desired matches for lsh
 bestMatch = zeros(testingLength, 1);
 best=[];
+byFeature = false;
 
 %go through every test image:
 currTestFeat = 1;
-threshold = 2;    %3;
+threshold = 3;%2;    %3;
 j=1;
 overallFeatTally = [];
 for currImg = (trainingLength + 1):(trainingLength + testingLength)
@@ -202,15 +208,17 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
                     tally(end+1,:)=[hitImg weight];
                 end
             end
-            if (weight > 0.1)
-                weight = weight -0.05; %* 0.9;
-            end
+            %if (weight > 0.1)
+            %    weight = weight -0.05; %* 0.9;
+            %end
         end
         
-        %keeping a tally of the features LSH hit with currTestFeat
-        for j=1:length(iNN)
-            %go through nearest neighbor features returned and update tally for each 
-            featTally(iNN(j),2)=featTally(iNN(j),2)+1;
+        if (byFeature)
+            %keeping a tally of the features LSH hit with currTestFeat
+            for j=1:length(iNN)
+                %go through nearest neighbor features returned and update tally for each 
+                featTally(iNN(j),2)=featTally(iNN(j),2)+1;
+            end
         end
         
         currTestFeat = currTestFeat + 1;
@@ -230,8 +238,19 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
     
     %store test images ids with consensus below a threshold in a separate array
     if best(1,2)<threshold
-        overallFeatTally{end+1, 1} = currImg;
-        overallFeatTally{end, 2} = featTally;
+        if (byFeature)
+            overallFeatTally{end+1, 1} = currImg;
+            overallFeatTally{end, 2} = featTally;
+        else
+            %make sparse representation of *image* hits...
+            sparseTally = zeros(trainingLength, 1);
+            if (~isempty(tally))
+                sparseTally(tally(:,1)) = tally(:,2);
+            end
+            overallFeatTally{end+1, 1} = currImg;
+            overallFeatTally{end, 2} = sparseTally;
+            %fprintf('added!');
+        end
     end
     
 end
@@ -258,7 +277,7 @@ end
 %since we can't do == on a cell array...
 tempCSV = cell2mat(irmaCSV(:,1));
 
-fileID = fopen('output_weighted2.txt', 'w');
+fileID = fopen('outputbof.txt', 'w');
 for i=1:testingLength
     %now look up the real ID of each test image:
     currID = realImageIDs(i+trainingLength);
@@ -272,13 +291,13 @@ end
 
 toc
 %% saving images with bad consensus to file for input to svm
-tempCSVtest=cell2mat(irmaCSVtest(:,1));
-for i=1:length(svmInput)
-    svmFeat(i)=strongestSURFfeatures(svmInput(i));
-    svmIRMAClass(i)=irmaCSVtest(find(realImageIDs(svmInput(i))== tempCSVtest(:,1)), 3)
-end
-
-saveSURFtoFile('svmInput.txt', svmFeat, 0, svmIRMAClass);
+% tempCSVtest=cell2mat(irmaCSVtest(:,1));
+% for i=1:length(svmInput)
+%     svmFeat(i)=strongestSURFfeatures(svmInput(i));
+%     svmIRMAClass(i)=irmaCSVtest(find(realImageIDs(svmInput(i))== tempCSVtest(:,1)), 3)
+% end
+% 
+% saveSURFtoFile('svmInput.txt', svmFeat, 0, svmIRMAClass);
 
 %% appending svm output file to lsh output file 
 
@@ -288,21 +307,28 @@ system('cat output_weighted2%s.txt svmoutput%s.txt > output.txt');
 %% saving BoF-style tally for all images with bad consensus to file for SVM input:
 tempCSVtest=cell2mat(irmaCSVtest(:,1));
 
+outpath = 'testingbof_sub.txt';
+
 %fileID = fopen('output_weighted2.txt', 'w');
 bofRealIds = realImageIDs(cell2mat(overallFeatTally(:,1)));
-fopen('testingbof.txt', 'w');
+fopen(outpath, 'w');
 %dlmwrite('output_weighted2.txt', horzcat(bofRealIds, overallFeatTally{:,2}(:,2)
 for i=1:length(overallFeatTally)
-    
-    bofToWrite = horzcat(bofRealIds(i), overallFeatTally{i,2}(:,2)');
-    dlmwrite('testingbof.txt', bofToWrite, '-append');
+    svmIRMAClass = irmaCSVtest(find(bofRealIds(i)== tempCSVtest(:,1)), 3);
+    if (byFeature)
+        bofToWrite = horzcat(svmIRMAClass, overallFeatTally{i,2}(:,2)');
+    else
+        bofToWrite = horzcat(svmIRMAClass, overallFeatTally{i,2}(:,1)');
+    end
+    dlmwrite(outpath, bofToWrite, '-append');
 end
 %dlmwrite('testingbof.txt', bofToWrite, ' ');
 
 
 %% Save SVM training data -- hit frequency for all training images on lsh table
 tic
-fopen('trainingbof.txt', 'w');
+fopen('trainingbof2.txt', 'w');
+byFeature = false;
 
 bofToWrite = [];
 %go through every training image:
@@ -310,30 +336,51 @@ currTestFeat = 1;
 j=1;
 overallTrainingTally = [];
 for currImg = 1:trainingLength
-    %do lsh on every feature of the current image, and keep a tally:
-    featTally = zeros(length(featInd),1);
+    if (byFeature)
+        %do lsh on every feature of the current image, and keep a tally:
+        featTally = zeros(length(featInd),1); 
+    else
+        %do lsh on every feature of the current image, and keep a tally of
+        %which *images* it hit:
+        featTally = zeros(trainingLength,1); 
+    end
     
-    while (testFeatInd(currTestFeat) == currImg) && (currTestFeat <= length(testFeat))
+    while (featInd(currTestFeat) == currImg) && (currTestFeat <= length(inputFeat))
         %iNN = indecides of matches, numcand = number of examined
         %candidates in the lookup table 
-        [iNN,numcand]=lshlookup(testFeat(:,currTestFeat),inputFeat,Te,'k',rNN);
+        [iNN,numcand]=lshlookup(inputFeat(:,currTestFeat),inputFeat,Te,'k',rNN);
         
         %keeping a tally of the features LSH hit with currTestFeat
-        for j=1:length(iNN)
-            %go through nearest neighbor features returned and update tally for each 
-            featTally(iNN(j))=featTally(iNN(j))+1;
+        for j=1:length(iNN)            
+            if (byFeature)
+                %go through nearest neighbor features returned and update tally for each 
+                featTally(iNN(j))=featTally(iNN(j))+1;
+            else
+                %we want to group by image, for quick-and-dirty dimensionality
+                %reduction:
+                hitImg = featInd(iNN(j));
+                featTally(hitImg)=featTally(hitImg)+1;
+            end
+            
         end
-        
+        %fprintf('actually run!')
+        %lengthinn = length(iNN)
         currTestFeat = currTestFeat + 1;
     end
+%lengthinn = length(iNN)
+    
+    svmIRMAClass = irmaCSV(find(realImageIDs(currImg)== tempCSV(:,1)), 3);
 
-    bofToWrite(currImg,:) = horzcat(realImageIDs(i), featTally');
-    %dlmwrite('trainingbof.txt', bofToWrite, '-append');
+
+    %bofToWrite(currImg,:) = horzcat(realImageIDs(i), featTally');
+    bofToWrite = horzcat(svmIRMAClass, featTally');
+    %max(featTally)
+    dlmwrite('trainingbof2.txt', bofToWrite, '-append');
     
 end
 toc
 tic
-save('trainingbof.mat', 'bofToWrite');
+%save('trainingbof.mat', 'bofToWrite');
 toc
 %% was for saving the ground truth to a form the python error script can read:
 % fileID = fopen('outputIRMAtestclasses.txt', 'w');
