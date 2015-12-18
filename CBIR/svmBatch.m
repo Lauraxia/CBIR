@@ -3,7 +3,7 @@ clc, clear all, close all
 %% params:
 fdir = '';
 paths = {'_sub1', '_sub2', '_sub3', '_sub4'};
-uniqueFileID = 'bof';%paths{4};
+uniqueFileID = 'bofweighted';%paths{4};
 testingSubsetPath = '_sub';
 trainingDataIsFromMat = 0;
 

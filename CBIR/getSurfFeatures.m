@@ -107,9 +107,9 @@ end
 
 
 
-%% saving SURF features from training images to array for input to lsh
+%% saving SURF, etc features from training images to array for input to lsh
 n=1;
-
+inputFeat = [];
 for i =1:trainingLength
     currCount = strongestSURFfeatures{i}.Count;
     
@@ -120,38 +120,36 @@ for i =1:trainingLength
         
         currFeat=strongestSURFfeatures{i}(j);
         
-        inputFeat(:,n)=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
+        currSurf=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
             double(currFeat.Orientation); double(currFeat.Location(1));...
             double(currFeat.Location(2)); double(currFeat.Metric)] ;
+        inputFeat(:,n) = vertcat(currSurf, barcode{i}');
         n=n+1;
     end
-    
-
 end
 save('featInd.mat', 'featInd');
 
-%% saving SURF features from testing images to array 
+%% saving SURF, etc features from testing images to array 
 n=1;
-
+testFeat = [];
 for i = trainingLength+1:testingLength+trainingLength
     
     currCount = strongestSURFfeatures{i}.Count;
     
     %lookup table to keep track of which features belong to which image 
     testFeatInd(n:n+currCount) = i;
-    
+
     for j=1:currCount        
         currFeat=strongestSURFfeatures{i}(j);
         
-        testFeat(:,n)=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
+        currSurf=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
             double(currFeat.Orientation); double(currFeat.Location(1));...
             double(currFeat.Location(2)); double(currFeat.Metric)] ;
+        testFeat(:,n) = vertcat(currSurf, barcode{i}');
         n=n+1;
     end
 end
 save('testFeatInd.mat', 'testFeatInd');
-
-
 
 %%
 load('featInd.mat');
@@ -160,21 +158,23 @@ load('testFeatInd.mat');
 addpath('../lshcode');
 Te=lsh('e2lsh', 50,20,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
 
-save('lshtable.mat', 'Te');
+save('lshtable_wbarcode.mat', 'Te');
 
 %% or load previous table:
-load('lshtable.mat');
+load('lshtable_wbarcode.mat');
 
 %% Find lsh matches and their consensus:
 tic
 rNN=50; %number of desired matches for lsh
 bestMatch = zeros(testingLength, 1);
+saveToOutput = zeros(testingLength, 1);
 best=[];
 byFeature = false;
+useWeights = true;
 
 %go through every test image:
 currTestFeat = 1;
-threshold = 3;%2;    %3;
+threshold = 0;%2;    %3;
 j=1;
 overallFeatTally = [];
 for currImg = (trainingLength + 1):(trainingLength + testingLength)
@@ -208,16 +208,16 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
                     tally(end+1,:)=[hitImg weight];
                 end
             end
-            %if (weight > 0.1)
-            %    weight = weight -0.05; %* 0.9;
-            %end
+            if (useWeights && weight > 0.1)
+                weight = weight -0.05; %* 0.9;
+            end
         end
         
         if (byFeature)
             %keeping a tally of the features LSH hit with currTestFeat
             for j=1:length(iNN)
                 %go through nearest neighbor features returned and update tally for each 
-                featTally(iNN(j),2)=featTally(iNN(j),2)+1;
+                featTally(iNN(j),2)=featTally(iNN(j),2)+weight;
             end
         end
         
@@ -251,6 +251,9 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
             overallFeatTally{end, 2} = sparseTally;
             %fprintf('added!');
         end
+    else
+        %our lsh result is good enough, so mark it to save to an output!
+        saveToOutput(currImg - trainingLength) = 1;
     end
     
 end
@@ -279,14 +282,16 @@ tempCSV = cell2mat(irmaCSV(:,1));
 
 fileID = fopen('outputbof.txt', 'w');
 for i=1:testingLength
-    %now look up the real ID of each test image:
-    currID = realImageIDs(i+trainingLength);
-    %and also that of its best match, and use that to retrieve its IRMA code:
-    matchID = realImageIDs(bestMatch(i));
-    matchIRMA = irmaCSV(tempCSV == matchID, 2);
-    
-    
-    fprintf(fileID, '%d %s\n', currID, matchIRMA{1});
+    %check if there was a consensus -- otherwise the SVM will be doing it instead:
+    if (saveToOutput(i))
+        %now look up the real ID of each test image:
+        currID = realImageIDs(i+trainingLength);
+        %and also that of its best match, and use that to retrieve its IRMA code:
+        matchID = realImageIDs(bestMatch(i));
+        matchIRMA = irmaCSV(tempCSV == matchID, 2);
+
+        fprintf(fileID, '%d %s\n', currID, matchIRMA{1});
+    end
 end
 
 toc
@@ -301,13 +306,13 @@ toc
 
 %% appending svm output file to lsh output file 
 
-system('cat output_weighted2%s.txt svmoutput%s.txt > output.txt');
+system('cat outputbof.txt svmoutputbof_sub.txt > output_bofmerged.txt');
 
 
 %% saving BoF-style tally for all images with bad consensus to file for SVM input:
 tempCSVtest=cell2mat(irmaCSVtest(:,1));
 
-outpath = 'testingbof_sub.txt';
+outpath = 'testingbofweighted_sub.txt';
 
 %fileID = fopen('output_weighted2.txt', 'w');
 bofRealIds = realImageIDs(cell2mat(overallFeatTally(:,1)));
@@ -327,14 +332,23 @@ end
 
 %% Save SVM training data -- hit frequency for all training images on lsh table
 tic
-fopen('trainingbof2.txt', 'w');
+outpath = 'trainingbof2.txt'
+fopen(outpath, 'w');
 byFeature = false;
 
 bofToWrite = [];
 %go through every training image:
+
+overallTrainingTally = [];
+useWeights = 1;
+
+iNNList = {};
+parfor i=1:length(inputFeat)
+   [iNNList{i},~]=lshlookup(inputFeat(:,i),inputFeat,Te,'k',rNN); 
+end
+%%
 currTestFeat = 1;
 j=1;
-overallTrainingTally = [];
 for currImg = 1:trainingLength
     if (byFeature)
         %do lsh on every feature of the current image, and keep a tally:
@@ -348,20 +362,24 @@ for currImg = 1:trainingLength
     while (featInd(currTestFeat) == currImg) && (currTestFeat <= length(inputFeat))
         %iNN = indecides of matches, numcand = number of examined
         %candidates in the lookup table 
-        [iNN,numcand]=lshlookup(inputFeat(:,currTestFeat),inputFeat,Te,'k',rNN);
+        %[iNN,numcand]=lshlookup(inputFeat(:,currTestFeat),inputFeat,Te,'k',rNN);
+        iNN = iNNList{currTestFeat};
         
+        weight = 1;
         %keeping a tally of the features LSH hit with currTestFeat
         for j=1:length(iNN)            
             if (byFeature)
                 %go through nearest neighbor features returned and update tally for each 
-                featTally(iNN(j))=featTally(iNN(j))+1;
+                featTally(iNN(j))=featTally(iNN(j))+weight;
             else
                 %we want to group by image, for quick-and-dirty dimensionality
                 %reduction:
                 hitImg = featInd(iNN(j));
-                featTally(hitImg)=featTally(hitImg)+1;
+                featTally(hitImg)=featTally(hitImg)+weight;
             end
-            
+            if (useWeights && weight > 0.1)
+                weight = weight -0.05; %* 0.9;
+            end
         end
         %fprintf('actually run!')
         %lengthinn = length(iNN)
@@ -375,7 +393,7 @@ for currImg = 1:trainingLength
     %bofToWrite(currImg,:) = horzcat(realImageIDs(i), featTally');
     bofToWrite = horzcat(svmIRMAClass, featTally');
     %max(featTally)
-    dlmwrite('trainingbof2.txt', bofToWrite, '-append');
+    dlmwrite(outpath, bofToWrite, '-append');
     
 end
 toc
