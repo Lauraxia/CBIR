@@ -1,3 +1,7 @@
+
+%% params
+ useBarcode = false;
+
 %% load all IRMA training and testing images:
 trainPath = '../../IRMA/2009/Training Data/ImageCLEFmed2009_train.02/';
 path = sprintf('%s*.png', trainPath);
@@ -51,13 +55,15 @@ end
 %%
 save('trainingTestingFiles.mat', 'irma', '-v7.3'); %must use recent version since large variable
 save('trainingTestingLengths.mat', 'trainingLength', 'testingLength');
+save('files.mat', 'files');
 
 %% if we want to use preloaded files instead:
 load('trainingTestingFiles.mat', 'irma');
 load('trainingTestingLengths.mat', 'trainingLength', 'testingLength');
+load('files.mat');
 
 %% calculate SURF features for them (using a low enough threshold to guarantee a min number of features to use)
-numSURF=10;
+numSURF=50;
 features = cell(1, length(files));
 strongestfeatures = cell(1, length(files));
 fprintf('Progress:\n');
@@ -98,14 +104,39 @@ end
 
 %% calculate radon barcodes (RBCs) for each image 
 addpath('../');
-i=1;
-for file = files'
-    barcode{i} = extractRBC(irma{i}, 32, 32, 8, false);
-    fprintf('Extracting barcodes for image %d \r', i); 
-    i=i+1;
+barcode = [];
+%i=1;
+for i=1:length(irma)%file = files'
+    barcode(i,:) = extractRBC(irma{i}, 64, 64, 32, false);%32, 32, 8, false);
+    %fprintf('Extracting barcodes for image %d \r', i); 
 end
 
+%% use barcode-only Hamming distance error metric:
+curr = 1;
+for i=trainingLength + 1:trainingLength + testingLength
+    %find closest barcode from all training images to each testing image:
+    barcodeMatch(curr) = 1;
+    closestDistance = pdist2(barcode(i,:),barcode(1,:),'hamming');
+    for j=2:trainingLength
+    	currDist = pdist2(barcode(i,:),barcode(j,:),'hamming');
+        if (currDist < closestDistance)
+            closestDistance = currDist;
+            barcodeMatch(curr) = j;
+        end
+    end
+    curr = curr + 1;
+end
+%%
+% save just barcodes for svm:
+trainingfile = fopen('training_barcodes.txt', 'w');
+testingfile = fopen('testing_barcodes.txt', 'w');
 
+%for i=1:trainingLength
+    csvwrite('training_barcodes.txt', horzcat(cell2mat(irmaCSV(:,3)), barcode(1:trainingLength, :)));
+    csvwrite('testing_barcodes.txt', horzcat(cell2mat(irmaCSVtest(:,3)), barcode(trainingLength+1:end, :)));
+%fprintf(trainingFile, "%strongestSURFfeatures(1:trainingLength), 10, irmaCSV(:,3));
+%end
+%saveSURFtoFile('testing_barcodes.txt', strongestSURFfeatures(trainingLength+1:end), 10, irmaCSVtest(:,3));
 
 %% saving SURF, etc features from training images to array for input to lsh
 n=1;
@@ -120,10 +151,16 @@ for i =1:trainingLength
         
         currFeat=strongestSURFfeatures{i}(j);
         
-        currSurf=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
-            double(currFeat.Orientation); double(currFeat.Location(1));...
-            double(currFeat.Location(2)); double(currFeat.Metric)] ;
-        inputFeat(:,n) = vertcat(currSurf, barcode{i}');
+        if (useBarcode)
+            currSurf=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
+                double(currFeat.Orientation); double(currFeat.Location(1));...
+                double(currFeat.Location(2)); double(currFeat.Metric)] ;
+            inputFeat(:,n) = vertcat(currSurf, barcode{i}');
+        else
+             inputFeat(:,n) = [double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
+                double(currFeat.Orientation); double(currFeat.Location(1));...
+                double(currFeat.Location(2)); double(currFeat.Metric)];
+        end
         n=n+1;
     end
 end
@@ -142,10 +179,16 @@ for i = trainingLength+1:testingLength+trainingLength
     for j=1:currCount        
         currFeat=strongestSURFfeatures{i}(j);
         
-        currSurf=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
-            double(currFeat.Orientation); double(currFeat.Location(1));...
-            double(currFeat.Location(2)); double(currFeat.Metric)] ;
-        testFeat(:,n) = vertcat(currSurf, barcode{i}');
+        if (useBarcode)
+            currSurf=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
+                double(currFeat.Orientation); double(currFeat.Location(1));...
+                double(currFeat.Location(2)); double(currFeat.Metric)] ;
+            testFeat(:,n) = vertcat(currSurf, barcode{i}');
+        else
+            testFeat(:,n)=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
+                double(currFeat.Orientation); double(currFeat.Location(1));...
+                double(currFeat.Location(2)); double(currFeat.Metric)] ;
+        end
         n=n+1;
     end
 end
@@ -158,10 +201,10 @@ load('testFeatInd.mat');
 addpath('../lshcode');
 Te=lsh('e2lsh', 50,20,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
 
-save('lshtable_wbarcode.mat', 'Te');
+save('lshtable_50.mat', 'Te');
 
 %% or load previous table:
-load('lshtable_wbarcode.mat');
+load('lshtable_50.mat');
 
 %% Find lsh matches and their consensus:
 tic
@@ -174,7 +217,7 @@ useWeights = true;
 
 %go through every test image:
 currTestFeat = 1;
-threshold = 0;%2;    %3;
+threshold = 30;%2;    %3;
 j=1;
 overallFeatTally = [];
 for currImg = (trainingLength + 1):(trainingLength + testingLength)
@@ -280,7 +323,7 @@ end
 %since we can't do == on a cell array...
 tempCSV = cell2mat(irmaCSV(:,1));
 
-fileID = fopen('outputbof.txt', 'w');
+fileID = fopen('outputarcode.txt', 'w');
 for i=1:testingLength
     %check if there was a consensus -- otherwise the SVM will be doing it instead:
     if (saveToOutput(i))
@@ -312,7 +355,7 @@ system('cat outputbof.txt svmoutputbof_sub.txt > output_bofmerged.txt');
 %% saving BoF-style tally for all images with bad consensus to file for SVM input:
 tempCSVtest=cell2mat(irmaCSVtest(:,1));
 
-outpath = 'testingbofweighted_sub.txt';
+outpath = 'testingbof50_sub.txt';
 
 %fileID = fopen('output_weighted2.txt', 'w');
 bofRealIds = realImageIDs(cell2mat(overallFeatTally(:,1)));
@@ -332,7 +375,7 @@ end
 
 %% Save SVM training data -- hit frequency for all training images on lsh table
 tic
-outpath = 'trainingbof2.txt'
+outpath = 'trainingbof_50.txt'
 fopen(outpath, 'w');
 byFeature = false;
 

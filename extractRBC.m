@@ -52,9 +52,9 @@ function barcode  = extractRBC(IMG,nrows,ncols,numRays,showRBC)
             numRays = uint8(numRays)
             if (numRays<=0 | numRays>180)
                 numRays = 8;
-                disp('Number of projections set to default: 8')
+                %disp('Number of projections set to default: 8')
             end
-            disp('Calling the RBC function...');
+            %disp('Calling the RBC function...');
     end
 
     % normalize input image
@@ -83,7 +83,7 @@ function barcode  = extractRBC(IMG,nrows,ncols,numRays,showRBC)
         barcode = [barcode thisColumn'];
     end
     
-    disp('RBC extrected.')
+    %disp('RBC extrected.')
     if showRBC
         subplot(1,3,1), imagesc(IMG), colormap(gray(256)), axis off, title('Original Image')
         subplot(1,3,2), imshow(normIMG), colormap(gray(256)), axis off, title('Normalized Image')

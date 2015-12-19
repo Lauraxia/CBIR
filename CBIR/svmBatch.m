@@ -3,9 +3,10 @@ clc, clear all, close all
 %% params:
 fdir = '';
 paths = {'_sub1', '_sub2', '_sub3', '_sub4'};
-uniqueFileID = 'bofweighted';%paths{4};
-testingSubsetPath = '_sub';
+uniqueFileID = '_barcodes';%paths{4};
+testingSubsetPath = '';
 trainingDataIsFromMat = 0;
+byFeature = 0;
 
 %% load training data for svm:
 path = sprintf('%straining%s.txt', fdir, uniqueFileID);
@@ -171,6 +172,7 @@ end
 
 
 %% if this is an all-in-one classification (no subcodes), output results to files so that we can check the official IRMA error:
+load('files.mat');
 
 %convert training, testing indices to actual image ids:
 realImageIDs = zeros(trainingLength + testingLength, 1);
