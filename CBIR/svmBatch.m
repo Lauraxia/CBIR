@@ -3,7 +3,7 @@ clc, clear all, close all
 %% params:
 fdir = '';
 paths = {'_sub1', '_sub2', '_sub3', '_sub4'};
-uniqueFileID = '_barcodes';%paths{4};
+uniqueFileID = 'bof_10';%paths{4};
 testingSubsetPath = '';
 trainingDataIsFromMat = 0;
 byFeature = 0;
@@ -71,7 +71,7 @@ addpath(dirData);
 
 %% train svm:
 %TODO use grid search to determine optimal c and g values!
-model = svmtrain(trainingData(:, 1), double(trainingData(:, 2:end)), '-s 0 -t 2 -m 2500 -h 0'); %disable -h 0?
+model = ovrtrain(trainingData(:, 1), double(trainingData(:, 2:end)), '-s 0 -t 2 -m 2500 -h 0'); %disable -h 0?
 display('Training complete.');
 
 % save model information for next time:
@@ -95,7 +95,7 @@ for j=1:(length(testingData(1,:))-1)
 end
 
 %parfor i=1:length(testingData)
-    [predict_label, accuracy, prob_values] = svmpredict(testingData(:, 1), double(testingData(:, 2:end)), model);
+    [predict_label, accuracy, prob_values] = ovrpredict(testingData(:, 1), double(testingData(:, 2:end)), model);
 %end
 
 %% Save results:
@@ -169,6 +169,61 @@ for i=1:testingLength
     fprintf(fileID, '%d\n', bestMatch(i));
 end
 
+%% instead, use prob values to pick best few cases for each test image, and use radon barcodes 
+% to find the hamming distance between those for the final result:
+
+%get shortlist, do hamming distance on barcodes:   
+
+curr = 1;
+for i=1:length(predict_label)
+    
+    imgShortlist = [];
+    shortlistThreshold = -0.99988;
+    shortlist = find(prob_values(i,:) > shortlistThreshold);
+    %TODO this is quite inefficient; refactor
+    while length(shortlist) < 1
+        shortlistThreshold = shortlistThreshold - 0.00005; %0.00005;
+        shortlist = find(prob_values(i,:) > shortlistThreshold);
+    end
+    %[~, shortlist] = max(prob_values(i,:));
+
+    for k=1:length(shortlist)
+        tempShortlist = find(cell2mat(irmaCSV(:,3)) == shortlist(k));
+        for l=1:length(tempShortlist)
+            imgShortlist(length(imgShortlist)+1) = tempShortlist(l);
+        end
+
+        %if we have too many, just pick 5 at random to compare:
+        %this actually makes results MUCH worse, as in 870 vs 761
+%         if (length(imgShortlist) > 5)
+%             imgShortlist = imgShortlist(randperm(length(imgShortlist), 5));
+%         end
+    end
+
+    %find closest barcode from all training images to each testing image:
+    barcodeMatch(curr) = imgShortlist(1);
+    closestDistance = pdist2(barcode(i+trainingLength,:),barcode(imgShortlist(1),:),'hamming');
+    for j=2:length(imgShortlist)
+    	currDist = pdist2(barcode(i+trainingLength,:),barcode(imgShortlist(j),:),'hamming');
+        if (currDist < closestDistance)
+            closestDistance = currDist;
+            barcodeMatch(curr) = imgShortlist(j);
+        end
+    end
+    curr = curr + 1;
+end
+    
+%end
+%% save barcode output:
+savePath = sprintf('svmoutputbarcode%s%s.txt', uniqueFileID, testingSubsetPath);
+fileID = fopen(savePath, 'w');
+for i=1:length(testingData(:,1))
+    %now look up the real ID of each test image:
+    currID = realImageIDs(i+trainingLength);
+    %and also the best guess at its IRMA code:
+    matchIRMA = irmaCSV(barcodeMatch(i),2);    
+    fprintf(fileID, '%d %s\n', currID, matchIRMA{1});
+end
 
 
 %% if this is an all-in-one classification (no subcodes), output results to files so that we can check the official IRMA error:

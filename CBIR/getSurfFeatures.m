@@ -63,7 +63,7 @@ load('trainingTestingLengths.mat', 'trainingLength', 'testingLength');
 load('files.mat');
 
 %% calculate SURF features for them (using a low enough threshold to guarantee a min number of features to use)
-numSURF=50;
+numSURF=10;
 features = cell(1, length(files));
 strongestfeatures = cell(1, length(files));
 fprintf('Progress:\n');
@@ -105,11 +105,18 @@ end
 %% calculate radon barcodes (RBCs) for each image 
 addpath('../');
 barcode = [];
+barcodeDimX = 64;
+barcodeDimY = 64;
+barcodeNumProj = 32;
 %i=1;
 for i=1:length(irma)%file = files'
-    barcode(i,:) = extractRBC(irma{i}, 64, 64, 32, false);%32, 32, 8, false);
+    barcode(i,:) = extractRBC(irma{i}, barcodeDimX, barcodeDimY, barcodeNumProj, false);%32, 32, 8, false);
     %fprintf('Extracting barcodes for image %d \r', i); 
 end
+save(sprintf('barcodes_%d_%d_%d.mat', barcodeDimX, barcodeDimY, barcodeNumProj), 'barcode');
+
+%%
+
 
 %% use barcode-only Hamming distance error metric:
 curr = 1;
@@ -201,10 +208,10 @@ load('testFeatInd.mat');
 addpath('../lshcode');
 Te=lsh('e2lsh', 50,20,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
 
-save('lshtable_50.mat', 'Te');
+save('lshtable_10.mat', 'Te');
 
 %% or load previous table:
-load('lshtable_50.mat');
+load('lshtable_10.mat');
 
 %% Find lsh matches and their consensus:
 tic
@@ -355,7 +362,7 @@ system('cat outputbof.txt svmoutputbof_sub.txt > output_bofmerged.txt');
 %% saving BoF-style tally for all images with bad consensus to file for SVM input:
 tempCSVtest=cell2mat(irmaCSVtest(:,1));
 
-outpath = 'testingbof50_sub.txt';
+outpath = 'testingbof_10.txt';
 
 %fileID = fopen('output_weighted2.txt', 'w');
 bofRealIds = realImageIDs(cell2mat(overallFeatTally(:,1)));
@@ -375,7 +382,7 @@ end
 
 %% Save SVM training data -- hit frequency for all training images on lsh table
 tic
-outpath = 'trainingbof_50.txt'
+outpath = 'trainingbof_10.txt'
 fopen(outpath, 'w');
 byFeature = false;
 
@@ -392,6 +399,7 @@ end
 %%
 currTestFeat = 1;
 j=1;
+tempCSV = cell2mat(irmaCSV(:,1));
 for currImg = 1:trainingLength
     if (byFeature)
         %do lsh on every feature of the current image, and keep a tally:
