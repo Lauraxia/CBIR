@@ -158,16 +158,17 @@ for i =1:trainingLength
         
         currFeat=strongestSURFfeatures{i}(j);
         
-        if (useBarcode)
-            currSurf=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
-                double(currFeat.Orientation); double(currFeat.Location(1));...
-                double(currFeat.Location(2)); double(currFeat.Metric)] ;
-            inputFeat(:,n) = vertcat(currSurf, barcode{i}');
-        else
-             inputFeat(:,n) = [double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
-                double(currFeat.Orientation); double(currFeat.Location(1));...
-                double(currFeat.Location(2)); double(currFeat.Metric)];
-        end
+%         if (useBarcode)
+%             currSurf=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
+%                 double(currFeat.Orientation); double(currFeat.Location(1));...
+%                 double(currFeat.Location(2)); double(currFeat.Metric)] ;
+%             inputFeat(:,n) = vertcat(currSurf, barcode{i}');
+%         else
+%              inputFeat(:,n) = [double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
+%                 double(currFeat.Orientation); double(currFeat.Location(1));...
+%                 double(currFeat.Location(2)); double(currFeat.Metric)];
+%         end
+            inputFeat(:,n) = extractFeatures(irma{i}, currFeat);
         n=n+1;
     end
 end
@@ -186,16 +187,17 @@ for i = trainingLength+1:testingLength+trainingLength
     for j=1:currCount        
         currFeat=strongestSURFfeatures{i}(j);
         
-        if (useBarcode)
-            currSurf=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
-                double(currFeat.Orientation); double(currFeat.Location(1));...
-                double(currFeat.Location(2)); double(currFeat.Metric)] ;
-            testFeat(:,n) = vertcat(currSurf, barcode{i}');
-        else
-            testFeat(:,n)=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
-                double(currFeat.Orientation); double(currFeat.Location(1));...
-                double(currFeat.Location(2)); double(currFeat.Metric)] ;
-        end
+%         if (useBarcode)
+%             currSurf=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
+%                 double(currFeat.Orientation); double(currFeat.Location(1));...
+%                 double(currFeat.Location(2)); double(currFeat.Metric)] ;
+%             testFeat(:,n) = vertcat(currSurf, barcode{i}');
+%         else
+%             testFeat(:,n)=[double(currFeat.Scale); double(currFeat.SignOfLaplacian);...
+%                 double(currFeat.Orientation); double(currFeat.Location(1));...
+%                 double(currFeat.Location(2)); double(currFeat.Metric)] ;
+%         end
+        testFeat(:,n) = extractFeatures(irma{i}, currFeat);
         n=n+1;
     end
 end
@@ -204,14 +206,22 @@ save('testFeatInd.mat', 'testFeatInd');
 %%
 load('featInd.mat');
 load('testFeatInd.mat');
+
+
+%% do matching with FLANN instead of LSH:
+%for i=1:
+%extractFeatures(
+
+
+
 %% creating lsh data structure for input features, and then save it:
 addpath('../lshcode');
 Te=lsh('e2lsh', 50,20,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
 
-save('lshtable_10.mat', 'Te');
+save('lshtable_surfvec.mat', 'Te');
 
 %% or load previous table:
-load('lshtable_10.mat');
+load('lshtable_surfvec.mat');
 
 %% Find lsh matches and their consensus:
 tic
@@ -221,12 +231,19 @@ saveToOutput = zeros(testingLength, 1);
 best=[];
 byFeature = false;
 useWeights = true;
+justBarcodesAfter = true;
 
 %go through every test image:
 currTestFeat = 1;
-threshold = 30;%2;    %3;
+threshold = 0;%2;    %3;
 j=1;
 overallFeatTally = [];
+
+iNNListTest = {};
+parfor i=1:length(inputFeat)
+   [iNNListTest{i},~]=lshlookup(inputFeat(:,i),inputFeat,Te,'k',rNN); 
+end
+%%
 for currImg = (trainingLength + 1):(trainingLength + testingLength)
     %do lsh on every feature of the current image, and keep a tally:
     tally = [];
@@ -236,7 +253,7 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
     while (testFeatInd(currTestFeat) == currImg) && (currTestFeat <= length(testFeat))
         %iNN = indecides of matches, numcand = number of examined
         %candidates in the lookup table 
-        [iNN,numcand]=lshlookup(testFeat(:,currTestFeat),inputFeat,Te,'k',rNN);
+        iNN = iNNListTest{currTestFeat};
         
         weight = 1;
         %add all hits for this feature to the tally for the current image:
@@ -286,33 +303,38 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
         
     end
     
-    %store test images ids with consensus below a threshold in a separate array
-    if best(1,2)<threshold
-        if (byFeature)
-            overallFeatTally{end+1, 1} = currImg;
-            overallFeatTally{end, 2} = featTally;
-        else
-            %make sparse representation of *image* hits...
-            sparseTally = zeros(trainingLength, 1);
-            if (~isempty(tally))
-                sparseTally(tally(:,1)) = tally(:,2);
-            end
-            overallFeatTally{end+1, 1} = currImg;
-            overallFeatTally{end, 2} = sparseTally;
-            %fprintf('added!');
-        end
-    else
-        %our lsh result is good enough, so mark it to save to an output!
-        saveToOutput(currImg - trainingLength) = 1;
-    end
+    if justBarcodesAfter
+        % we just want to save the top matches to a list to check barcodes
+        % later
     
+    else
+        %store test images ids with consensus below a threshold in a separate array
+        if best(1,2)<threshold
+            if (byFeature)
+                overallFeatTally{end+1, 1} = currImg;
+                overallFeatTally{end, 2} = featTally;
+            else
+                %make sparse representation of *image* hits...
+                sparseTally = zeros(trainingLength, 1);
+                if (~isempty(tally))
+                    sparseTally(tally(:,1)) = tally(:,2);
+                end
+                overallFeatTally{end+1, 1} = currImg;
+                overallFeatTally{end, 2} = sparseTally;
+                %fprintf('added!');
+            end
+        else
+            %our lsh result is good enough, so mark it to save to an output!
+            saveToOutput(currImg - trainingLength) = 1;
+        end
+    end
 end
 
 
 %% output results to files so that we can check the official IRMA error:
 
 %TODO: if no match was found, we have a 0 -- for now, we'll pretend
-%it's a random image to make things work out:
+%itjames 's a random image to make things work out:
 bestMatch(bestMatch == 0) = 1;
 
 %convert training, testing indices to actual image ids:
@@ -330,10 +352,10 @@ end
 %since we can't do == on a cell array...
 tempCSV = cell2mat(irmaCSV(:,1));
 
-fileID = fopen('outputarcode.txt', 'w');
+fileID = fopen('outputfixed.txt', 'w');
 for i=1:testingLength
     %check if there was a consensus -- otherwise the SVM will be doing it instead:
-    if (saveToOutput(i))
+    %if (saveToOutput(i))
         %now look up the real ID of each test image:
         currID = realImageIDs(i+trainingLength);
         %and also that of its best match, and use that to retrieve its IRMA code:
@@ -341,7 +363,7 @@ for i=1:testingLength
         matchIRMA = irmaCSV(tempCSV == matchID, 2);
 
         fprintf(fileID, '%d %s\n', currID, matchIRMA{1});
-    end
+    %end
 end
 
 toc
