@@ -536,25 +536,32 @@ trainingImageSet = imageSet(trainingFilepaths);
 %%
 tic
 extractorFcn = @bagOfFeaturesExtractor;
-bag = bagOfFeatures(trainingImageSet, 'CustomExtractor',extractorFcn);
-save('bag.mat', 'bag');
+bag = bagOfFeatures(trainingImageSet, 'CustomExtractor',extractorFcn, 'VocabularySize', 20000);
+save('bag_better.mat', 'bag');
 toc
-%%
-
-
+%% generate training vector of SURF features for SVM with the bag:
+tic
 for i=1:trainingLength
-    currImg = read(trainingImageSet(1),1);
+    currImg = read(trainingImageSet(1),i);
     trainingFeatureVector(i,:) = encode(bag, currImg);
 end
+toc
 
+%% %% generate testing vector of SURF features for SVM with the bag:
+tic
 
-for i=(trainingLength + 1):(trainingLength + testingLength)
-    testingFilepaths{i} = sprintf('%s%s', testPath, files(i).name);
+for i=1:testingLength
+    testingFilepaths{i} = sprintf('%s%s', testPath, files(i+trainingLength).name);
 end
 testingImageSet = imageSet(testingFilepaths);
-for i=1:trainingLength
-    currImg = read(testingImageSet(1),1);
+for i=1:testingLength
+    currImg = read(testingImageSet(1),i);
     testingFeatureVector(i,:) = encode(bag, currImg);
 end
+toc
+%% save everything to text files for reading into the SVM:
+%trainingfile = fopen('training_properbof.txt', 'w');
+%testingfile = fopen('testing_properbof.txt', 'w');
 
-%%
+csvwrite('training_properbof.txt', horzcat(cell2mat(irmaCSV(:,3)), trainingFeatureVector));
+csvwrite('testing_properbof.txt', horzcat(cell2mat(irmaCSVtest(:,3)), testingFeatureVector));

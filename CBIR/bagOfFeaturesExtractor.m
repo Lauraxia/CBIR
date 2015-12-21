@@ -62,7 +62,7 @@ function [features, featureMetrics, varargout] = bagOfFeaturesExtractor(I)
 % or detectMSERFeatures to select point locations. For instance:
 %
 multiscaleSURFPoints = detectSURFFeatures(grayImage, 'MetricThreshold', 200);
-multiscaleSURFPoints = selectStrongest(multiscaleSURFPoints, 10); %TODO might not be a good idea to do this
+%multiscaleSURFPoints = selectStrongest(multiscaleSURFPoints, 10); %TODO might not be a good idea to do this
 %% Step 3: Extract features
 % Finally, extract features from the selected point locations. By default,
 % bagOfFeatures extracts upright SURF features.

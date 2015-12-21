@@ -3,10 +3,11 @@ clc, clear all, close all
 %% params:
 fdir = '';
 paths = {'_sub1', '_sub2', '_sub3', '_sub4'};
-uniqueFileID = '_propersurf';%paths{4};
+uniqueFileID = '_properbof';%paths{4};
 testingSubsetPath = '';
 trainingDataIsFromMat = 0;
-byFeature = 1;
+byFeature = 10;
+doNormalization = false;
 
 %% load training data for svm:
 path = sprintf('%straining%s.txt', fdir, uniqueFileID);
@@ -16,19 +17,21 @@ else
     trainingData = csvread(path);
 end
 
-%% find normalization factors:
-numFeatures = length(trainingData(1,:))-1;
-scalingFactors = ones(numFeatures,1);
-for i=1:numFeatures
-    scalingFactors(i) = max(trainingData(:, i+1));
-    if (scalingFactors(i) == 0) %corner case, so not NaN
-        scalingFactors(i) = 1;
+%% find normalization factors (if desired):
+if doNormalization
+    numFeatures = length(trainingData(1,:))-1;
+    scalingFactors = ones(numFeatures,1);
+    for i=1:numFeatures
+        scalingFactors(i) = max(trainingData(:, i+1));
+        if (scalingFactors(i) == 0) %corner case, so not NaN
+            scalingFactors(i) = 1;
+        end
+        trainingData(:, i+1) = trainingData(:, i+1) ./ scalingFactors(i);
     end
-    trainingData(:, i+1) = trainingData(:, i+1) ./ scalingFactors(i);
-end
 
-scalePath = sprintf('scalingFactors%s.mat', uniqueFileID);
-save(scalePath, 'scalingFactors');
+    scalePath = sprintf('scalingFactors%s.mat', uniqueFileID);
+    save(scalePath, 'scalingFactors');
+end
 %TODO: handling negative data?!
 
 %% load things needed to find consensus:
@@ -87,11 +90,13 @@ tic
 path2 = sprintf('%stesting%s%s.txt', fdir, uniqueFileID, testingSubsetPath);
 testingData = csvread(path2);
 
-% scale:
-scalePath = sprintf('scalingFactors%s.mat', uniqueFileID);
-load(scalePath, 'scalingFactors');
-for j=1:(length(testingData(1,:))-1)
-    testingData(:, j+1) = testingData(:, j+1) ./ scalingFactors(j);
+% normalize, if needed:
+if doNormalization
+    scalePath = sprintf('scalingFactors%s.mat', uniqueFileID);
+    load(scalePath, 'scalingFactors');
+    for j=1:(length(testingData(1,:))-1)
+        testingData(:, j+1) = testingData(:, j+1) ./ scalingFactors(j);
+    end
 end
 
 %parfor i=1:length(testingData)
