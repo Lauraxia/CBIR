@@ -3,10 +3,10 @@ clc, clear all, close all
 %% params:
 fdir = '';
 paths = {'_sub1', '_sub2', '_sub3', '_sub4'};
-uniqueFileID = 'bof_10';%paths{4};
+uniqueFileID = '_propersurf';%paths{4};
 testingSubsetPath = '';
 trainingDataIsFromMat = 0;
-byFeature = 0;
+byFeature = 1;
 
 %% load training data for svm:
 path = sprintf('%straining%s.txt', fdir, uniqueFileID);
@@ -70,8 +70,8 @@ dirData = '../libsvm';
 addpath(dirData);
 
 %% train svm:
-%TODO use grid search to determine optimal c and g values!
-model = ovrtrain(trainingData(:, 1), double(trainingData(:, 2:end)), '-s 0 -t 2 -m 2500 -h 0'); %disable -h 0?
+%TODO use grid search to determine optimal c and g values! ovr
+model = svmtrain(trainingData(:, 1), double(trainingData(:, 2:end)), '-s 0 -t 2 -m 2500 -h 0'); %disable -h 0?
 display('Training complete.');
 
 % save model information for next time:
@@ -79,7 +79,7 @@ modelPath = sprintf('model%s.mat', uniqueFileID);
 save(modelPath, 'model');
 
 %% test with the following images:
-
+tic
 % to load saved model:
 %modelPath = sprintf('model%s.mat', uniqueFileID);
 %load(modelPath, 'model');
@@ -95,9 +95,9 @@ for j=1:(length(testingData(1,:))-1)
 end
 
 %parfor i=1:length(testingData)
-    [predict_label, accuracy, prob_values] = ovrpredict(testingData(:, 1), double(testingData(:, 2:end)), model);
+    [predict_label, accuracy, prob_values] = svmpredict(testingData(:, 1), double(testingData(:, 2:end)), model);
 %end
-
+toc
 %% Save results:
 outpath = sprintf('%spredict%s%s.txt', fdir, uniqueFileID, testingSubsetPath);
 save(outpath, 'predict_label', '-ascii');
@@ -243,7 +243,11 @@ end
 %%
 savePath = sprintf('svmoutput%s%s.txt', uniqueFileID, testingSubsetPath);
 fileID = fopen(savePath, 'w');
-for i=1:length(testingData(:,1))
+for i=1:length(bestMatch)
+    
+    %TODO: this was supposed to have run before...
+    bestMatch(bestMatch == 0) = 1;
+    
     %now look up the real ID of each test image:
     currID = realImageIDs(i+trainingLength);
     %and also the best guess at its IRMA code:

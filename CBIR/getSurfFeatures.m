@@ -177,6 +177,7 @@ save('featInd.mat', 'featInd');
 %% saving SURF, etc features from testing images to array 
 n=1;
 testFeat = [];
+testFeatInd = [];
 for i = trainingLength+1:testingLength+trainingLength
     
     currCount = strongestSURFfeatures{i}.Count;
@@ -206,6 +207,52 @@ save('testFeatInd.mat', 'testFeatInd');
 %%
 load('featInd.mat');
 load('testFeatInd.mat');
+
+%% save proper 64-bit SURF features for SVM:
+
+trainingfile = fopen('training_propersurf.txt', 'w');
+testingfile = fopen('testing_propersurf.txt', 'w');
+
+%for i=1:trainingLength
+    csvwrite('training_propersurf.txt', horzcat(cell2mat(irmaCSV(:,3)), inputFeat'));
+    csvwrite('testing_propersurf.txt', horzcat(cell2mat(irmaCSVtest(:,3)), testFeat'));
+
+%% save proper 64-bit SURF features for SVM:
+n=1;
+currFeat = [];
+trainingfile = 'training_propersurf.txt';
+fopen(trainingfile, 'w');
+for i =1:trainingLength
+    currCount = strongestSURFfeatures{i}.Count;
+    
+    %lookup table to keep track of which features belong to which image 
+    featInd(n:n+currCount) = i;
+    
+    for j=1:currCount
+        
+        currFeat(n) = cell2mat(irmaCSV(i,3)); %, inputFeat(:,n)');
+        n=n+1;
+    end
+end
+csvwrite(trainingfile, horzcat(currFeat', inputFeat'));
+%%
+n=1;
+currFeat = [];
+testingfile = 'testing_propersurf.txt';
+fopen(testingfile, 'w');
+for i = trainingLength + 1:trainingLength + testingLength
+    currCount = strongestSURFfeatures{i}.Count;
+    
+    %lookup table to keep track of which features belong to which image 
+    testFeatInd(n:n+currCount) = i;
+    
+    for j=1:currCount
+        
+        currFeat(n) = cell2mat(irmaCSVtest(i-trainingLength,3));
+        n=n+1;
+    end
+end
+csvwrite(testingfile, horzcat(currFeat', testFeat'));
 
 
 %% do matching with FLANN instead of LSH:
@@ -478,3 +525,36 @@ toc
 % for i=1:1733
 %     fprintf(fileID, '%d %s\n', ImageCLEFmed2009testcodes{i,1}, ImageCLEFmed2009testcodes{i,2});
 % end
+
+
+%% try bag-of-words:
+
+for i=1:trainingLength
+    trainingFilepaths{i} = sprintf('%s%s', trainPath, files(i).name);
+end
+trainingImageSet = imageSet(trainingFilepaths);
+%%
+tic
+extractorFcn = @bagOfFeaturesExtractor;
+bag = bagOfFeatures(trainingImageSet, 'CustomExtractor',extractorFcn);
+save('bag.mat', 'bag');
+toc
+%%
+
+
+for i=1:trainingLength
+    currImg = read(trainingImageSet(1),1);
+    trainingFeatureVector(i,:) = encode(bag, currImg);
+end
+
+
+for i=(trainingLength + 1):(trainingLength + testingLength)
+    testingFilepaths{i} = sprintf('%s%s', testPath, files(i).name);
+end
+testingImageSet = imageSet(testingFilepaths);
+for i=1:trainingLength
+    currImg = read(testingImageSet(1),1);
+    testingFeatureVector(i,:) = encode(bag, currImg);
+end
+
+%%

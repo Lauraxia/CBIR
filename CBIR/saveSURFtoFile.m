@@ -1,4 +1,4 @@
-function [  ] = saveSURFtoFile( path, features, subsetIncrement, firstCol )
+function [  ] = saveSURFtoFile( path, features, subsetIncrement, firstCol, useProper )
 %UNTITLED3 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -34,6 +34,7 @@ for i=1:length(features)
         %fprintf(file, '%f %f %f %f %f %f\n', features{1}(j).Scale, features{1}(j).SignOfLaplacian, features{1}(j).Orientation, features{1}(j).Location, features{1}(j).Metric); 
         
         currFeat = features{i}(j);
+        
         
         if (saveFirstCol)
             currString = sprintf('%d %f %f %f %f %f %f\n', firstCol{i}, currFeat.Scale, currFeat.SignOfLaplacian, currFeat.Orientation, currFeat.Location, currFeat.Metric); 
