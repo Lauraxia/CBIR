@@ -537,9 +537,12 @@ trainingImageSet = imageSet(trainingFilepaths);
 tic
 disp(datestr(now))
 extractorFcn = @bagOfFeaturesExtractor;
-bag = bagOfFeatures(trainingImageSet, 'CustomExtractor',extractorFcn, 'VocabularySize', 20000);
-save('bag_better.mat', 'bag');
+bag = bagOfFeatures(trainingImageSet, 'CustomExtractor',extractorFcn, 'VocabularySize', 2000);
+save('bag_mser6.mat', 'bag');
 toc
+
+%%
+load('bag.mat');
 %% generate training vector of SURF features for SVM with the bag:
 
 trainingFeatureVector = [];
@@ -561,5 +564,5 @@ testingFeatureVector = encode(bag, testingImageSet);
 toc
 %% save everything to text files for reading into the SVM:
 
-csvwrite('training_properbof.txt', horzcat(cell2mat(irmaCSV(:,3)), trainingFeatureVector));
-csvwrite('testing_properbof.txt', horzcat(cell2mat(irmaCSVtest(:,3)), testingFeatureVector));
+csvwrite('training_properbofmser6.txt', horzcat(cell2mat(irmaCSV(:,3)), trainingFeatureVector));
+csvwrite('testing_properbofmser6.txt', horzcat(cell2mat(irmaCSVtest(:,3)), testingFeatureVector));

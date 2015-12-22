@@ -30,7 +30,7 @@ function [features, featureMetrics, varargout] = bagOfFeaturesExtractor(I)
 % extraction. For SURF features, I must be a grayscale image.
 
  % Convert I to first channel only if required. height,width
- [~,~,numChannels] = size(I);
+ [height,width,numChannels] = size(I);
  if numChannels > 1
      grayImage = I(:,:,1);
  else
@@ -41,17 +41,18 @@ function [features, featureMetrics, varargout] = bagOfFeaturesExtractor(I)
 % Here, a regular spaced grid of point locations is created over I. This
 % allows for dense SURF feature extraction. 
 
-% Define a regular grid over I.
-% gridStep = 8; % in pixels
-% gridX = 1:gridStep:width;
-% gridY = 1:gridStep:height;
-% 
-% [x,y] = meshgrid(gridX, gridY);
-% 
-% gridLocations = [x(:) y(:)];
+% % Define a regular grid over I.
+ gridStep = 16; % in pixels
+ gridX = 1:gridStep:width;
+ gridY = 1:gridStep:height;
+ 
+ [x,y] = meshgrid(gridX, gridY);
+ 
+ gridLocations = [x(:) y(:)];
 
 %%
 % Concatenate multiple SURFPoint objects at different scales to achieve
+multiscaleSURFPoints = SURFPoints(gridLocations);
 % multiscale feature extraction.
 % multiscaleGridPoints = [SURFPoints(gridLocations, 'Scale', 1.6); 
 %                         SURFPoints(gridLocations, 'Scale', 3.2);
@@ -61,12 +62,15 @@ function [features, featureMetrics, varargout] = bagOfFeaturesExtractor(I)
 % Alternatively, you may use a feature detector such as detectSURFFeatures
 % or detectMSERFeatures to select point locations. For instance:
 %
-multiscaleSURFPoints = detectSURFFeatures(grayImage, 'MetricThreshold', 200);
+%multiscaleSURFPoints = detectMSERFeatures(grayImage, 'ThresholdDelta', 2);
+%multiscaleSURFPoints2 = detectSURFFeatures(grayImage, 'MetricThreshold', 350);
 %multiscaleSURFPoints = selectStrongest(multiscaleSURFPoints, 10); %TODO might not be a good idea to do this
 %% Step 3: Extract features
 % Finally, extract features from the selected point locations. By default,
 % bagOfFeatures extracts upright SURF features.
 features = extractFeatures(grayImage, multiscaleSURFPoints);%,'Upright',true);
+%features2 = extractFeatures(grayImage, multiscaleSURFPoints2);
+%features = vertcat(features, features2);
 
 %% Step 4: Compute the Feature Metric
 % The feature metrics indicate the strength of each feature, where larger

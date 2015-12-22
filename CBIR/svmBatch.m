@@ -3,22 +3,22 @@ clc, clear all, close all
 %% params:
 fdir = '';
 paths = {'_sub1', '_sub2', '_sub3', '_sub4'};
-uniqueFileID = '_properbof';%paths{4};
+uniqueFileID = '_properbofmser5';%paths{4};
 testingSubsetPath = '';
-trainingDataIsFromMat = 0;
+trainingDataIsFromMat = false;
 byFeature = 10;
 doNormalization = false;
 
 %% load training data for svm:
 path = sprintf('%straining%s.txt', fdir, uniqueFileID);
-if (trainingDataIsFromMat)
+if (trainingDataIsFromMat == true)
     load(path, 'trainingData');
 else
     trainingData = csvread(path);
 end
 
 %% find normalization factors (if desired):
-if doNormalization
+if (doNormalization == true)
     numFeatures = length(trainingData(1,:))-1;
     scalingFactors = ones(numFeatures,1);
     for i=1:numFeatures
@@ -73,7 +73,7 @@ dirData = '../libsvm';
 addpath(dirData);
 
 %% train svm:
-%TODO use grid search to determine optimal c and g values! ovr
+%TODO use grid search to determine optimal c and g values! ovr svm
 model = svmtrain(trainingData(:, 1), double(trainingData(:, 2:end)), '-s 0 -t 2 -m 2500 -h 0'); %disable -h 0?
 display('Training complete.');
 
@@ -91,7 +91,7 @@ path2 = sprintf('%stesting%s%s.txt', fdir, uniqueFileID, testingSubsetPath);
 testingData = csvread(path2);
 
 % normalize, if needed:
-if doNormalization
+if (doNormalization == true)
     scalePath = sprintf('scalingFactors%s.mat', uniqueFileID);
     load(scalePath, 'scalingFactors');
     for j=1:(length(testingData(1,:))-1)
@@ -114,7 +114,7 @@ save(outpath, 'prob_values', '-ascii');
 
 %% Find the consensus between each feature (if needed):
 
-if (byFeature)
+if (byFeature == true)
     bestMatch = zeros(testingLength, 1);
 
     %go through every test image:
