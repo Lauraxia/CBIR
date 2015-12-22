@@ -268,6 +268,7 @@ Te=lsh('e2lsh', 50,20,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
 save('lshtable_surfvec.mat', 'Te');
 
 %% or load previous table:
+addpath('../lshcode');
 load('lshtable_surfvec.mat');
 
 %% Find lsh matches and their consensus:
@@ -278,7 +279,7 @@ saveToOutput = zeros(testingLength, 1);
 best=[];
 byFeature = false;
 useWeights = true;
-justBarcodesAfter = true;
+justBarcodesAfter = false;
 
 %go through every test image:
 currTestFeat = 1;
@@ -287,10 +288,13 @@ j=1;
 overallFeatTally = [];
 
 iNNListTest = {};
-parfor i=1:length(inputFeat)
-   [iNNListTest{i},~]=lshlookup(inputFeat(:,i),inputFeat,Te,'k',rNN); 
+parfor i=1:length(testFeat)
+   [iNNListTest{i},~]=lshlookup(testFeat(:,i),inputFeat,Te,'k',rNN); 
 end
+save('iNNListTest.mat', 'iNNListTest');
+toc
 %%
+tic
 for currImg = (trainingLength + 1):(trainingLength + testingLength)
     %do lsh on every feature of the current image, and keep a tally:
     tally = [];
@@ -350,13 +354,13 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
         
     end
     
-    if justBarcodesAfter
+    if (justBarcodesAfter == true)
         % we just want to save the top matches to a list to check barcodes
         % later
     
     else
         %store test images ids with consensus below a threshold in a separate array
-        if best(1,2)<threshold
+        %if best(1,2)<threshold
             if (byFeature)
                 overallFeatTally{end+1, 1} = currImg;
                 overallFeatTally{end, 2} = featTally;
@@ -370,10 +374,10 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
                 overallFeatTally{end, 2} = sparseTally;
                 %fprintf('added!');
             end
-        else
+        %else
             %our lsh result is good enough, so mark it to save to an output!
             saveToOutput(currImg - trainingLength) = 1;
-        end
+        %end
     end
 end
 
@@ -451,7 +455,7 @@ end
 
 %% Save SVM training data -- hit frequency for all training images on lsh table
 tic
-outpath = 'trainingbof_10.txt'
+outpath = 'trainingbof_10new.txt'
 fopen(outpath, 'w');
 byFeature = false;
 
@@ -460,7 +464,7 @@ bofToWrite = [];
 
 overallTrainingTally = [];
 useWeights = 1;
-
+%%
 iNNList = {};
 parfor i=1:length(inputFeat)
    [iNNList{i},~]=lshlookup(inputFeat(:,i),inputFeat,Te,'k',rNN); 
@@ -470,7 +474,7 @@ currTestFeat = 1;
 j=1;
 tempCSV = cell2mat(irmaCSV(:,1));
 for currImg = 1:trainingLength
-    if (byFeature)
+    if (byFeature == true)
         %do lsh on every feature of the current image, and keep a tally:
         featTally = zeros(length(featInd),1); 
     else
@@ -538,7 +542,7 @@ tic
 disp(datestr(now))
 extractorFcn = @bagOfFeaturesExtractor;
 bag = bagOfFeatures(trainingImageSet, 'CustomExtractor',extractorFcn, 'VocabularySize', 2000);
-save('bag_mser6.mat', 'bag');
+save('bag_rand.mat', 'bag');
 toc
 
 %%
@@ -564,5 +568,5 @@ testingFeatureVector = encode(bag, testingImageSet);
 toc
 %% save everything to text files for reading into the SVM:
 
-csvwrite('training_properbofmser6.txt', horzcat(cell2mat(irmaCSV(:,3)), trainingFeatureVector));
-csvwrite('testing_properbofmser6.txt', horzcat(cell2mat(irmaCSVtest(:,3)), testingFeatureVector));
+csvwrite('training_properbofrand.txt', horzcat(cell2mat(irmaCSV(:,3)), trainingFeatureVector));
+csvwrite('testing_properbofrand.txt', horzcat(cell2mat(irmaCSVtest(:,3)), testingFeatureVector));

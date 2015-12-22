@@ -3,10 +3,10 @@ clc, clear all, close all
 %% params:
 fdir = '';
 paths = {'_sub1', '_sub2', '_sub3', '_sub4'};
-uniqueFileID = '_properbofmser5';%paths{4};
+uniqueFileID = '_properbofmser';%paths{4};
 testingSubsetPath = '';
 trainingDataIsFromMat = false;
-byFeature = 10;
+byFeature = false;
 doNormalization = false;
 
 %% load training data for svm:
@@ -48,7 +48,7 @@ freq = hist(trainingData(:,1), max(trainingData(:,1)));
 %we want to get rid of some from classes that have too many
 %TODO: play around with threshold -- they are still pretty unbalanced, but
 %not all classes are well-represented...
-threshold = median(freq)*3;
+threshold = median(freq);%*2*3;
 numToCull = freq - threshold;
 %%
 for i=1:length(freq)

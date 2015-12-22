@@ -42,17 +42,21 @@ function [features, featureMetrics, varargout] = bagOfFeaturesExtractor(I)
 % allows for dense SURF feature extraction. 
 
 % % Define a regular grid over I.
- gridStep = 16; % in pixels
- gridX = 1:gridStep:width;
- gridY = 1:gridStep:height;
- 
- [x,y] = meshgrid(gridX, gridY);
- 
- gridLocations = [x(:) y(:)];
+%  gridStep = 16; % in pixels
+%  gridX = 8:gridStep:width-8;
+%  gridY = 8:gridStep:height-8;
+%  
+numFeat = 40;
+gridX = int16((width-1).*rand(numFeat, 1)+1);
+gridY = int16((height-1).*rand(numFeat, 1)+1);
+ % [x,y] = meshgrid(gridX, gridY);
+%  
+gridLocations = [gridX gridY];
+%gridLocations = [x(:) y(:)];
 
 %%
 % Concatenate multiple SURFPoint objects at different scales to achieve
-multiscaleSURFPoints = SURFPoints(gridLocations);
+ multiscaleSURFPoints = SURFPoints(gridLocations);
 % multiscale feature extraction.
 % multiscaleGridPoints = [SURFPoints(gridLocations, 'Scale', 1.6); 
 %                         SURFPoints(gridLocations, 'Scale', 3.2);
@@ -62,6 +66,7 @@ multiscaleSURFPoints = SURFPoints(gridLocations);
 % Alternatively, you may use a feature detector such as detectSURFFeatures
 % or detectMSERFeatures to select point locations. For instance:
 %
+%multiscaleSURFPoints = detectBRISKFeatures(grayImage, 'MinContrast', 0.1);
 %multiscaleSURFPoints = detectMSERFeatures(grayImage, 'ThresholdDelta', 2);
 %multiscaleSURFPoints2 = detectSURFFeatures(grayImage, 'MetricThreshold', 350);
 %multiscaleSURFPoints = selectStrongest(multiscaleSURFPoints, 10); %TODO might not be a good idea to do this
@@ -85,7 +90,7 @@ featureMetrics = var(features,[],2);
 % Alternatively, if a feature detector was used for point selection,
 % the detection metric can be used. For example:
 %
-% featureMetrics = multiscaleSURFPoints.Metric;
+%featureMetrics = multiscaleSURFPoints.Metric;
 
 % Optionally return the feature location information. The feature location
 % information is used for image search applications. See the retrieveImages
