@@ -63,7 +63,7 @@ load('trainingTestingLengths.mat', 'trainingLength', 'testingLength');
 load('files.mat');
 
 %% calculate SURF features for them (using a low enough threshold to guarantee a min number of features to use)
-numSURF=10;
+numSURF=20;
 features = cell(1, length(files));
 strongestfeatures = cell(1, length(files));
 fprintf('Progress:\n');
@@ -79,10 +79,10 @@ for i=1:length(files) %changed so not a parfor -- disk access is the delimiting 
    end
 end
 % so we don't have to do this over again unless absolutely necessary:
-save('strongestSURFfeatures.mat', 'strongestSURFfeatures');
+save('strongestSURFfeatures20.mat', 'strongestSURFfeatures');
 
 %% if we want to use precalculated SURF features:
-load('strongestSURFfeatures.mat', 'strongestSURFfeatures');
+load('strongestSURFfeatures20.mat', 'strongestSURFfeatures');
 
 %%
 %load csv with irma code for each image, then match up with what class that is:
@@ -146,8 +146,10 @@ testingfile = fopen('testing_barcodes.txt', 'w');
 %saveSURFtoFile('testing_barcodes.txt', strongestSURFfeatures(trainingLength+1:end), 10, irmaCSVtest(:,3));
 
 %% saving SURF, etc features from training images to array for input to lsh
+
 n=1;
 inputFeat = [];
+tic
 for i =1:trainingLength
     currCount = strongestSURFfeatures{i}.Count;
     
@@ -172,12 +174,15 @@ for i =1:trainingLength
         n=n+1;
     end
 end
-save('featInd.mat', 'featInd');
+toc
+save('featInd20.mat', 'featInd');
+save('inputFeat20.mat', 'inputFeat');
 
 %% saving SURF, etc features from testing images to array 
 n=1;
 testFeat = [];
 testFeatInd = [];
+tic
 for i = trainingLength+1:testingLength+trainingLength
     
     currCount = strongestSURFfeatures{i}.Count;
@@ -202,11 +207,15 @@ for i = trainingLength+1:testingLength+trainingLength
         n=n+1;
     end
 end
-save('testFeatInd.mat', 'testFeatInd');
+toc
+save('testFeatInd20.mat', 'testFeatInd');
+save('testFeat20.mat', 'testFeat');
 
 %%
 load('featInd.mat');
 load('testFeatInd.mat');
+load('testFeat');
+load('inputFeat');
 
 %% save proper 64-bit SURF features for SVM:
 
@@ -263,16 +272,17 @@ csvwrite(testingfile, horzcat(currFeat', testFeat'));
 
 %% creating lsh data structure for input features, and then save it:
 addpath('../lshcode');
+tic
 Te=lsh('e2lsh', 50,20,size(inputFeat,1), inputFeat, 'range', 255, 'w', -4);
-
-save('lshtable_surfvec.mat', 'Te');
+toc
+save('lshtable_surfvec20.mat', 'Te');
 
 %% or load previous table:
 addpath('../lshcode');
-load('lshtable_surfvec.mat');
+load('lshtable_surfvec20.mat');
 
 %% Find lsh matches and their consensus:
-tic
+
 rNN=50; %number of desired matches for lsh
 bestMatch = zeros(testingLength, 1);
 saveToOutput = zeros(testingLength, 1);
@@ -286,13 +296,16 @@ currTestFeat = 1;
 threshold = 0;%2;    %3;
 j=1;
 overallFeatTally = [];
-
+%%
 iNNListTest = {};
+tic
 parfor i=1:length(testFeat)
    [iNNListTest{i},~]=lshlookup(testFeat(:,i),inputFeat,Te,'k',rNN); 
 end
 save('iNNListTest.mat', 'iNNListTest');
 toc
+%%
+load('iNNListTest.mat', 'iNNListTest');
 %%
 tic
 for currImg = (trainingLength + 1):(trainingLength + testingLength)
@@ -327,11 +340,11 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
                 end
             end
             if (useWeights && weight > 0.1)
-                weight = weight -0.05; %* 0.9;
+                weight = weight * 0.95; %-0.02;%* 0.95; %-0.00; %
             end
         end
         
-        if (byFeature)
+        if (byFeature == true)
             %keeping a tally of the features LSH hit with currTestFeat
             for j=1:length(iNN)
                 %go through nearest neighbor features returned and update tally for each 
@@ -361,7 +374,7 @@ for currImg = (trainingLength + 1):(trainingLength + testingLength)
     else
         %store test images ids with consensus below a threshold in a separate array
         %if best(1,2)<threshold
-            if (byFeature)
+            if (byFeature == true)
                 overallFeatTally{end+1, 1} = currImg;
                 overallFeatTally{end, 2} = featTally;
             else
@@ -403,7 +416,7 @@ end
 %since we can't do == on a cell array...
 tempCSV = cell2mat(irmaCSV(:,1));
 
-fileID = fopen('outputfixed.txt', 'w');
+fileID = fopen('outputfixed_f.txt', 'w');
 for i=1:testingLength
     %check if there was a consensus -- otherwise the SVM will be doing it instead:
     %if (saveToOutput(i))
@@ -425,7 +438,7 @@ toc
 %     svmIRMAClass(i)=irmaCSVtest(find(realImageIDs(svmInput(i))== tempCSVtest(:,1)), 3)
 % end
 % 
-% saveSURFtoFile('svmInput.txt', svmFeat, 0, svmIRMAClass);
+% saveSURFtoFile('testing_lshbetter.txt', svmFeat, 0, svmIRMAClass);
 
 %% appending svm output file to lsh output file 
 
@@ -435,7 +448,7 @@ system('cat outputbof.txt svmoutputbof_sub.txt > output_bofmerged.txt');
 %% saving BoF-style tally for all images with bad consensus to file for SVM input:
 tempCSVtest=cell2mat(irmaCSVtest(:,1));
 
-outpath = 'testingbof_10.txt';
+outpath = 'testingbof_10f.txt';
 
 %fileID = fopen('output_weighted2.txt', 'w');
 bofRealIds = realImageIDs(cell2mat(overallFeatTally(:,1)));
@@ -455,7 +468,7 @@ end
 
 %% Save SVM training data -- hit frequency for all training images on lsh table
 tic
-outpath = 'trainingbof_10new.txt'
+outpath = 'trainingbof_10f.txt';
 fopen(outpath, 'w');
 byFeature = false;
 
@@ -463,12 +476,15 @@ bofToWrite = [];
 %go through every training image:
 
 overallTrainingTally = [];
-useWeights = 1;
+useWeights = true;
 %%
 iNNList = {};
 parfor i=1:length(inputFeat)
    [iNNList{i},~]=lshlookup(inputFeat(:,i),inputFeat,Te,'k',rNN); 
 end
+save('iNNList.mat', 'iNNList');
+%%
+load('iNNList.mat');
 %%
 currTestFeat = 1;
 j=1;
@@ -501,8 +517,8 @@ for currImg = 1:trainingLength
                 hitImg = featInd(iNN(j));
                 featTally(hitImg)=featTally(hitImg)+weight;
             end
-            if (useWeights && weight > 0.1)
-                weight = weight -0.05; %* 0.9;
+            if ((useWeights == true) && weight > 0.1)
+                weight = weight * 0.95;%-0.05; %* 0.9;
             end
         end
         %fprintf('actually run!')

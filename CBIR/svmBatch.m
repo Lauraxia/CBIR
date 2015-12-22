@@ -3,7 +3,7 @@ clc, clear all, close all
 %% params:
 fdir = '';
 paths = {'_sub1', '_sub2', '_sub3', '_sub4'};
-uniqueFileID = '_properbofmser';%paths{4};
+uniqueFileID = 'bof_10f';%paths{4};
 testingSubsetPath = '';
 trainingDataIsFromMat = false;
 byFeature = false;
@@ -48,7 +48,7 @@ freq = hist(trainingData(:,1), max(trainingData(:,1)));
 %we want to get rid of some from classes that have too many
 %TODO: play around with threshold -- they are still pretty unbalanced, but
 %not all classes are well-represented...
-threshold = median(freq);%*2*3;
+threshold = median(freq)*3;
 numToCull = freq - threshold;
 %%
 for i=1:length(freq)
@@ -73,8 +73,10 @@ dirData = '../libsvm';
 addpath(dirData);
 
 %% train svm:
+tic
 %TODO use grid search to determine optimal c and g values! ovr svm
-model = svmtrain(trainingData(:, 1), double(trainingData(:, 2:end)), '-s 0 -t 2 -m 2500 -h 0'); %disable -h 0?
+model = ovrtrain(trainingData(:, 1), double(trainingData(:, 2:end)), '-s 0 -t 2 -m 2500 -h 0'); %disable -h 0?
+toc
 display('Training complete.');
 
 % save model information for next time:
@@ -100,7 +102,7 @@ if (doNormalization == true)
 end
 
 %parfor i=1:length(testingData)
-    [predict_label, accuracy, prob_values] = svmpredict(testingData(:, 1), double(testingData(:, 2:end)), model);
+    [predict_label, accuracy, prob_values] = ovrpredict(testingData(:, 1), double(testingData(:, 2:end)), model);
 %end
 toc
 %% Save results:
